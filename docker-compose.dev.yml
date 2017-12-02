@@ -1,0 +1,36 @@
+version: '3'
+services:
+  vobla-api-service:
+    command: ["bash", "./wait-for-postgres.sh", "python manage.py --migrate runserver"]
+    volumes:
+      - ./api/vobla:/vobla
+      - ./api/manage.py:/manage.py
+      - ./api/tests:/tests
+      - ./api/alembic:/alembic
+      - ./wait-for-postgres.sh:/wait-for-postgres.sh
+      - ./volumes/vobla:/var/vobla
+    environment:
+      - 'ENV=dev'
+  mongo-service:
+    volumes:
+      - ./volumes/mongodb/data/db:/data/db
+  postgres-service:
+    volumes:
+      - ./volumes/postgres/var/lib/postgresql/data:/var/lib/postgresql/data
+  vobla-frontend-service:
+    build: frontend
+    command: npm start
+    ports:
+      - 3000:3000
+    volumes:
+      - ./frontend/src:/src
+    depends_on:
+      - vobla-api-service
+  swagger-ui-service:
+    image: swaggerapi/swagger-ui
+    depends_on:
+      - vobla-api-service
+    environment:
+      - 'API_URL=http://localhost:${VOBLA_API_PORT}/api/open_api2.json'
+    ports:
+      - '${VOBLA_SWAGGER_PORT}:8080'
