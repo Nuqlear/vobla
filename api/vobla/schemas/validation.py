@@ -11,6 +11,6 @@ class ValidationErrorSchema(BaseSchema):
             field = fields.Str()
 
         message = fields.Str()
-        validation = fields.Nested(ValidationFieldErrorSchema)
+        fields = fields.Nested(ValidationFieldErrorSchema)
 
     error = fields.Nested(InnerValidationErrorSchema)

@@ -51,7 +51,7 @@ class BaseHandler(SessionBaseHandler):
         }
         err_cls, err, tb = kwargs['exc_info']
         if issubclass(err_cls, errors.validation.VoblaValidationError):
-            resp_inner['validation'] = err.messages
+            resp_inner['fields'] = err.fields
         if status_code == 500 and self.settings.get('serve_traceback'):
             resp_inner['traceback'] = traceback.format_exception(
                 err_cls, err, tb

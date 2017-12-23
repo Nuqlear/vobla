@@ -283,7 +283,7 @@ class DropsUploadHandler(BaseHandler):
                         )
                     elif drop.owner_id != self.user.id:
                         raise errors.validation.VoblaValidationError(
-                            404, drop_hash='Drop with such hash is not yours.'
+                            403, drop_hash='Drop with such hash is not yours.'
                         )
                 drop_file = await DropFile.create(
                     self.pgc, drop, drop_file_name
@@ -302,7 +302,7 @@ class DropsUploadHandler(BaseHandler):
                 )
                 if drop.owner_id != self.user.id:
                     raise errors.validation.VoblaValidationError(
-                        404,
+                        403,
                         drop_file_hash='DropFile with such hash is not yours.'
                     )
             chunks_dir = drop_file.tmp_folder_path
