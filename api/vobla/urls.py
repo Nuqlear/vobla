@@ -11,8 +11,8 @@ url_patterns = [
     [r"/drops/$", drops.UserDropsHandler],
     [r"/drops/(?P<drop_hash>[a-zA-Z0-9]{16})$", drops.DropHandler],
     [r"/drops/upload$", drops.DropsUploadHandler],
-    [r"/drops/f/(?P<drop_file_hash>[a-zA-Z0-9]{16})$", drops.DropFilesHandler],
-    [r"/drops/f/(?P<drop_file_hash>[a-zA-Z0-9]{16})/content$", drops.DropFilesContentHandler]
+    [r"/drops/files/(?P<drop_file_hash>[a-zA-Z0-9]{16})$", drops.DropFilesHandler],
+    [r"/drops/files/(?P<drop_file_hash>[a-zA-Z0-9]{16})/content$", drops.DropFilesContentHandler]
 ]
 
 for ind, _ in enumerate(url_patterns):
