@@ -323,7 +323,7 @@ class DropsUploadHandler(BaseHandler):
                 (current_total_size + current_chunk_size) / file_total_size
             )
             if progress >= 1:
-                with open(drop_file.file_path, "ab") as target_file:
+                with open(drop_file.file_path, "ba+") as target_file:
                     for i in range(1, 1 + chunk_number):
                         stored_chunk_file_name = os.path.join(
                             chunks_dir,
@@ -333,8 +333,10 @@ class DropsUploadHandler(BaseHandler):
                         target_file.write(stored_chunk_file.read())
                         stored_chunk_file.close()
                         os.unlink(stored_chunk_file_name)
-                target_file.close()
-                drop_file.mimetype = chunk['content_type']
+                    target_file.seek(0)
+                    drop_file.mimetype = magic.from_buffer(
+                        target_file.read(1024), mime=True
+                    )
                 drop_file.uploaded_at = datetime.utcnow()
                 await drop_file.update(self.pgc)
                 self.set_status(201)

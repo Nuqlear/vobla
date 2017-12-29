@@ -134,7 +134,7 @@ class DropsUploadTest(TestMixin):
                         )
                         assert drop_file is not None
                         assert os.path.exists(drop_file.file_path) is True
-                        # assert drop_file.mimetype == 'image/png'
+                        assert drop_file.mimetype == 'image/png'
                         with open(drop_file.file_path, 'rb') as uploaded_f:
                             assert uploaded_f.read() == data
                         break
