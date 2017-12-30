@@ -11,24 +11,22 @@ from passlib.hash import pbkdf2_sha256
 from sqlalchemy import and_
 from tornado.testing import gen_test
 
-from vobla.db import User, UserInvite, DropFile, Drop
+from vobla.db import models
 from vobla.settings import config
 from vobla import errors
 from tests import TestMixin
 
 
-class DropsUploadTest(TestMixin):
+class DropsTestMixin(TestMixin):
 
     @classmethod
     def setUpClass(cls):
-        super(DropsUploadTest, cls).setUpClass()
+        super(DropsTestMixin, cls).setUpClass()
         cls.patches = [
             mock.patch.dict(
-                'vobla.settings.config', {
-                    'vobla': {
-                        'temp_upload_folder': tempfile.mkdtemp(),
-                        'upload_folder': tempfile.mkdtemp()
-                    }
+                config._proxies['vobla'], {
+                    'temp_upload_folder': tempfile.mkdtemp(),
+                    'upload_folder': tempfile.mkdtemp()
                 }
             )
         ]
@@ -41,7 +39,10 @@ class DropsUploadTest(TestMixin):
         shutil.rmtree(config['vobla']['upload_folder'])
         for patch in cls.patches:
             patch.stop()
-        super(DropsUploadTest, cls).tearDownClass()
+        super(DropsTestMixin, cls).tearDownClass()
+
+
+class DropsUploadTest(DropsTestMixin):
 
     async def _upload_chunk(self, data, headers):
         headers = {
@@ -110,11 +111,11 @@ class DropsUploadTest(TestMixin):
                     else:
                         assert response.code == 200
         assert response.code == 201
-        drop_file = await DropFile.select(
+        drop_file = await models.DropFile.select(
             pgc,
             and_(
-                DropFile.c.hash==drop_file_hash,
-                Drop.c.hash==drop_hash
+                models.DropFile.c.hash==drop_file_hash,
+                models.Drop.c.hash==drop_hash
             )
         )
         assert drop_file is not None
@@ -134,9 +135,9 @@ class DropsUploadTest(TestMixin):
             'password_hash': 'pass',
         }
         async with self._app.pg.acquire() as conn:
-            u = await User.insert(conn, data)
+            u = await models.User.insert(conn, data)
             token = u.make_jwt()
-            drop = await Drop.create(conn, u)
+            drop = await models.Drop.create(conn, u)
             # 100000b should be enough to upload fixture file by one request
             chunk_sizes = [100, 100000]
             for chunk_size in chunk_sizes:
@@ -171,12 +172,12 @@ class DropsUploadTest(TestMixin):
             'password_hash': 'pass',
         }
         async with self._app.pg.acquire() as conn:
-            u = await User.insert(conn, user_data)
-            drop = await Drop.create(conn, u)
-            dropfile = await DropFile.create(conn, drop)
+            u = await models.User.insert(conn, user_data)
+            drop = await models.Drop.create(conn, u)
+            dropfile = await models.DropFile.create(conn, drop)
             data = os.urandom(100)
             user_data['email'] = 'email2'
-            u2 = await User.insert(conn, user_data)
+            u2 = await models.User.insert(conn, user_data)
             u2_token = u2.make_jwt()
             # logic for first and next chunks has some differencies
             for chunk_number in [1, 2]:
@@ -186,7 +187,7 @@ class DropsUploadTest(TestMixin):
                     'Chunk-Number': chunk_number,
                     'Chunk-Size': 100,
                     'File-Total-Size': 200,
-                    'Drop-Hash': Drop.gen_hash(-1)
+                    'Drop-Hash': models.Drop.gen_hash(-1)
                 }
                 resp = await self._upload_chunk(data, headers)
                 self.assertValidationError(resp, 'Drop-Hash', 404)
@@ -206,7 +207,7 @@ class DropsUploadTest(TestMixin):
                     'Chunk-Number': chunk_number,
                     'Chunk-Size': 100,
                     'File-Total-Size': 100,
-                    'Drop-File-Hash': DropFile.gen_hash(-1)
+                    'Drop-File-Hash': models.DropFile.gen_hash(-1)
                 }
                 resp = await self._upload_chunk(data, headers)
                 self.assertValidationError(resp, 'Drop-File-Hash', 404)
@@ -228,9 +229,9 @@ class DropsUploadTest(TestMixin):
             'password_hash': 'pass',
         }
         async with self._app.pg.acquire() as conn:
-            u = await User.insert(conn, user_data)
-            drop = await Drop.create(conn, u)
-            dropfile = await DropFile.create(conn, drop)
+            u = await models.User.insert(conn, user_data)
+            drop = await models.Drop.create(conn, u)
+            dropfile = await models.DropFile.create(conn, drop)
             token = u.make_jwt()
             resp = await self._upload_chunk(
                 os.urandom(100), {
@@ -243,3 +244,10 @@ class DropsUploadTest(TestMixin):
                 }
             )
             self.assertValidationError(resp, 'Chunk-Number', 422)
+
+
+class DropsInfoTest(DropsTestMixin):
+
+    @gen_test
+    async def test_va_upload(self):
+        pass

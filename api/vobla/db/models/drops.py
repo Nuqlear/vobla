@@ -5,7 +5,7 @@ import sqlalchemy as sa
 from hashids import Hashids
 
 from vobla.db.orm import Model
-from vobla.db.users import User
+from vobla.db.models.users import User
 from vobla.settings import config
 
 
@@ -32,6 +32,42 @@ class Drop(Model, GenHashMixin):
         sa.Column('hash', sa.String(16)),
         sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow)
     ]
+
+    @classmethod
+    async def fetch_and_serialize(cls, pgc, id_or_ids):
+        async with pgc.begin():
+            if isinstance(id_or_ids, list):
+                drop = await cls.select(cls.c.id==id_or_ids)
+                owner = await User.select(id==drop.owner_id)
+                files = await DropFile.select(
+                    cls.c.drop_id==id_or_ids, cls.c.uploaded_at!=None,
+                    return_list=True
+                )
+                return {
+                    'name': drop.name,
+                    'hash': drop.hash,
+                    'created_at': drop.created_at,
+                    'owner': {
+                        'email': owner.email
+                    },
+                    'dropfiles': [
+                        {
+                            'name': file.name,
+                            'hash': file.hash,
+                            'mimetype': file.mimetype,
+                            'uploaded_at': file.uploaded_at
+                        }
+                        for file in files
+                    ]
+                }
+            else:
+                query = (
+                    cls.t.select().where(Drop.c.id.in_(id_or_ids))
+                    .order_by(Drop.c.id)
+                )
+                cursor = await pgc.execute(query)
+                res = await cursor.fetchmany()
+                return res
 
     @classmethod
     async def create(cls, pgc, owner, name=None):

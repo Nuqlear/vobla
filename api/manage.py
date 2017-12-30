@@ -12,7 +12,7 @@ import tornado.testing
 from vobla.settings import config
 from vobla.app import TornadoApplication
 from vobla.db.engine import create_engine
-from vobla.db import UserInvite
+from vobla.db.models import UserInvite
 
 
 def run_server():

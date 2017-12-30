@@ -6,7 +6,7 @@ from vobla import errors
 from vobla.handlers import BaseHandler
 from vobla.utils import jwt_auth
 from vobla.utils import api_spec_exists
-from vobla.db import User, UserInvite
+from vobla.db import models
 
 
 @api_spec_exists
@@ -31,20 +31,20 @@ class SignupHandler(BaseHandler):
                 schema: ValidationErrorSchema
         '''
         async with self.pgc.begin() as tr:
-            res = await UserInvite.select(
+            res = await models.UserInvite.select(
                 self.pgc,
-                UserInvite.c.code==reqargs['invite_code']
+                models.UserInvite.c.code==reqargs['invite_code']
             )
             if not res:
                 raise errors.validation.VoblaValidationError(
                     invite_code='Invite code is not valid'
                 )
             invite_code = reqargs.pop('invite_code')
-            user = User(**reqargs)
+            user = models.User(**reqargs)
             user.hash_password(reqargs.pop('password'))
-            await UserInvite.delete(
+            await models.UserInvite.delete(
                 self.pgc,
-                UserInvite.c.code==invite_code
+                models.UserInvite.c.code==invite_code
             )
             try:
                 await user.insert(self.pgc)
@@ -81,7 +81,9 @@ class LoginHandler(BaseHandler):
                 description: Incorrect input data
                 schema: ValidationErrorSchema
         '''
-        user = await User.select(self.pgc, User.c.email==reqargs['email'])
+        user = await models.User.select(
+            self.pgc, models.User.c.email==reqargs['email']
+        )
         if not (
             user and
             user.verify_password(reqargs['password'])

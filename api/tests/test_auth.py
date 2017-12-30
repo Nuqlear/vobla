@@ -1,7 +1,7 @@
 from passlib.hash import pbkdf2_sha256
 from tornado.testing import gen_test
 
-from vobla.db import User, UserInvite
+from vobla.db import models
 from vobla import errors
 from tests import TestMixin
 
@@ -21,7 +21,7 @@ class SignupTest(TestMixin):
     @gen_test
     async def test_incomplete_data(self):
         async with self.pg.acquire() as conn:
-            ui = await UserInvite.create(conn)
+            ui = await models.UserInvite.create(conn)
         cases = [
             {},
             {'email': 'asdas'},
@@ -38,7 +38,7 @@ class SignupTest(TestMixin):
     @gen_test
     async def test_valid_data(self):
         async with self.pg.acquire() as conn:
-            ui = await UserInvite.create(conn)
+            ui = await models.UserInvite.create(conn)
             data = {
                 'email': 'email',
                 'password': 'pass',
@@ -46,8 +46,8 @@ class SignupTest(TestMixin):
             }
             resp = await self._test_case(data, 201)
             assert 'token' in resp.body
-            user = await User.select(
-                conn, User.c.email==data['email']
+            user = await models.User.select(
+                conn, models.User.c.email==data['email']
             )
             assert user is not None
             assert pbkdf2_sha256.verify(
@@ -61,8 +61,8 @@ class SignupTest(TestMixin):
             'password_hash': 'pass',
         }
         async with self._app.pg.acquire() as conn:
-            await User.insert(conn, data)
-            ui = await UserInvite.create(conn)
+            await models.User.insert(conn, data)
+            ui = await models.UserInvite.create(conn)
             data['invite_code'] = ui.code
         data['password'] = data.pop('password_hash')
         resp = await self._test_case(
@@ -112,7 +112,7 @@ class LoginTest(TestMixin):
             'password': 'pass'
         }
         async with self._app.pg.acquire() as conn:
-            await User.insert(
+            await models.User.insert(
                 conn,
                 dict(
                     email=data['email'],
@@ -143,7 +143,7 @@ class SyncTest(TestMixin):
             'password': 'pass'
         }
         async with self._app.pg.acquire() as conn:
-            user = await User.insert(
+            user = await models.User.insert(
                 conn,
                 dict(
                     email=data['email'],

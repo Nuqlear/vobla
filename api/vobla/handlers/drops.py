@@ -11,7 +11,7 @@ from vobla import errors
 from vobla.handlers import BaseHandler
 from vobla.utils import jwt_auth
 from vobla.utils import api_spec_exists
-from vobla.db import User, UserInvite, Drop, DropFile
+from vobla.db import models
 
 
 @api_spec_exists
@@ -35,8 +35,8 @@ class UserDropsHandler(BaseHandler):
                 description: Invalid/Missing authorization header
                 schema: ValidationErrorSchema
         '''
-        drops = await Drop.select(
-            self.pgc, Drop.c.owner_id==self.user.id
+        drops = await models.Drop.select(
+            self.pgc, models.Drop.c.owner_id==self.user.id
         )
         data = {
             'drops': []
@@ -63,8 +63,8 @@ class DropHandler(BaseHandler):
             200:
                 decsription: OK
         '''
-        drop = await Drop.select(
-            self.pgc, Drop.c.hash==drop_hash
+        drop = await models.Drop.select(
+            self.pgc, models.Drop.c.hash==drop_hash
         )
         data = {
         }
@@ -97,8 +97,8 @@ class DropHandler(BaseHandler):
         await Drop.delete(
             self.pgc,
             and_(
-                Drop.c.hash==drop_hash,
-                Drop.c.owner_id==self.user.id
+                models.Drop.c.hash==drop_hash,
+                models.Drop.c.owner_id==self.user.id
             )
         )
         self.set_status(200)
@@ -133,8 +133,8 @@ class DropFilesHandler(BaseHandler):
         await DropFile.select(
             self.pgc,
             and_(
-                DropFile.c.hash==drop_file_hash,
-                DropFile.c.owner_id==self.user.id
+                models.DropFile.c.hash==drop_file_hash,
+                models.DropFile.c.owner_id==self.user.id
             )
         )
         self.set_status(200)
@@ -161,8 +161,8 @@ class DropFilesHandler(BaseHandler):
                 description: Invalid/Missing authorization header
                 schema: ValidationErrorSchema
         '''
-        drop_file = await DropFile.select(
-            self.pgc, DropFile.c.hash==drop_file_hash
+        drop_file = await models.DropFile.select(
+            self.pgc, models.DropFile.c.hash==drop_file_hash
         )
         data = {
         }
@@ -269,11 +269,13 @@ class DropsUploadHandler(BaseHandler):
             drop_file = None
             if drop_file_hash is None:
                 if drop_hash is None:
-                    drop = await Drop.create(
+                    drop = await models.Drop.create(
                         self.pgc, self.user, drop_file_name
                     )
                 else:
-                    drop = await Drop.select(self.pgc, Drop.c.hash==drop_hash)
+                    drop = await models.Drop.select(
+                        self.pgc, models.Drop.c.hash==drop_hash
+                    )
                     if drop is None:
                         raise errors.validation.VoblaValidationError(
                             404, **{
@@ -290,12 +292,12 @@ class DropsUploadHandler(BaseHandler):
                                 )
                             }
                         )
-                drop_file = await DropFile.create(
+                drop_file = await models.DropFile.create(
                     self.pgc, drop, drop_file_name
                 )
             else:
-                drop_file = await DropFile.select(
-                    self.pgc, DropFile.c.hash==drop_file_hash
+                drop_file = await models.DropFile.select(
+                    self.pgc, models.DropFile.c.hash==drop_file_hash
                 )
                 if drop_file is None:
                     raise errors.validation.VoblaValidationError(
@@ -305,8 +307,8 @@ class DropsUploadHandler(BaseHandler):
                             )
                         }
                     )
-                drop = await Drop.select(
-                    self.pgc, Drop.c.id==drop_file.drop_id
+                drop = await models.Drop.select(
+                    self.pgc, models.Drop.c.id==drop_file.drop_id
                 )
                 if drop.owner_id != self.user.id:
                     raise errors.validation.VoblaValidationError(
@@ -394,11 +396,11 @@ class DropFilesContentHandler(BaseHandler):
                 description: DropFile with such hash is not found
         '''
         async with self.pgc.begin():
-            df = await DropFile.select(
+            df = await models.DropFile.select(
                 self.pgc,
                 and_(
-                    DropFile.c.hash==drop_file_hash,
-                    DropFile.c.uploaded_at.isnot(None)
+                    models.DropFile.c.hash==drop_file_hash,
+                    models.DropFile.c.uploaded_at.isnot(None)
                 )
             )
             if not df:

@@ -3,7 +3,7 @@ import functools
 from tornado import gen
 
 from vobla import errors
-from vobla.db import User
+from vobla.db.models import User
 
 
 def jwt_needed(func):

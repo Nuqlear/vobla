@@ -93,14 +93,15 @@ class Model(object, metaclass=ModelMeta):
     )
 
     @classmethod
-    async def select(cls, pgc, query):
+    async def select(cls, pgc, query, *ar, return_list=False):
         cursor = await pgc.execute(cls.t.select().where(query))
         if cursor.rowcount > 1:
             res = await cursor.fetchall()
             return [cls._construct_from_row(row) for row in res]
         elif cursor.rowcount == 1:
             res = await cursor.fetchone()
-            return cls._construct_from_row(res)
+            obj = cls._construct_from_row(res)
+            return [obj] if return_list else obj
         else:
             return None
 
