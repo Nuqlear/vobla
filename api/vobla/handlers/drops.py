@@ -260,14 +260,11 @@ class DropsUploadHandler(BaseHandler):
                         header='%s header is missing' % header
                     )
             drop_file_name = headers.get('Drop-File-Name', None)
-            chunk_number = headers.get('Chunk-Number', None)
-            chunk_number = int(chunk_number)
-            chunk_size = headers.get('Chunk-Size', None)
-            chunk_size = int(chunk_size)
-            file_total_size = headers.get('File-Total-Size', None)
-            file_total_size = int(file_total_size)
+            chunk_number = int(headers.get('Chunk-Number'))
+            chunk_size = int(headers.get('Chunk-Size'))
+            file_total_size = int(headers.get('File-Total-Size'))
             drop_file_hash = headers.get('Drop-File-Hash', None)
-            drop_hash = headers.get('Drop-File', None)
+            drop_hash = headers.get('Drop-Hash', None)
             drop = None
             drop_file = None
             if drop_file_hash is None:
@@ -279,11 +276,19 @@ class DropsUploadHandler(BaseHandler):
                     drop = await Drop.select(self.pgc, Drop.c.hash==drop_hash)
                     if drop is None:
                         raise errors.validation.VoblaValidationError(
-                            404, drop_hash='Drop with such hash is not found.'
+                            404, **{
+                                'Drop-Hash': (
+                                    'Drop with such hash is not found.'
+                                )
+                            }
                         )
                     elif drop.owner_id != self.user.id:
                         raise errors.validation.VoblaValidationError(
-                            403, drop_hash='Drop with such hash is not yours.'
+                            403, **{
+                                'Drop-Hash': (
+                                    'Drop with such hash is not yours.'
+                                )
+                            }
                         )
                 drop_file = await DropFile.create(
                     self.pgc, drop, drop_file_name
@@ -294,16 +299,22 @@ class DropsUploadHandler(BaseHandler):
                 )
                 if drop_file is None:
                     raise errors.validation.VoblaValidationError(
-                        404,
-                        drop_file_hash='DropFile with such hash is not found.'
+                        404, **{
+                            'Drop-File-Hash': (
+                                'DropFile with such hash is not found.'
+                            )
+                        }
                     )
                 drop = await Drop.select(
                     self.pgc, Drop.c.id==drop_file.drop_id
                 )
                 if drop.owner_id != self.user.id:
                     raise errors.validation.VoblaValidationError(
-                        403,
-                        drop_file_hash='DropFile with such hash is not yours.'
+                        403, **{
+                            'Drop-File-Hash': (
+                                'DropFile with such hash is not yours.'
+                            )
+                        }
                     )
             chunks_dir = drop_file.tmp_folder_path
             chunk_file_full_path = os.path.join(
@@ -329,7 +340,19 @@ class DropsUploadHandler(BaseHandler):
                             chunks_dir,
                             "{}.part{}".format(drop_file.hash, str(i))
                         )
-                        stored_chunk_file = open(stored_chunk_file_name, 'rb')
+                        try:
+                            stored_chunk_file = open(
+                                stored_chunk_file_name, 'rb'
+                            )
+                        except FileNotFoundError:
+                            raise errors.validation.VoblaValidationError(
+                                **{
+                                    'Chunk-Number': (
+                                        f'Previous chunk #{i} not found.'
+                                    )
+                                }
+
+                            )
                         target_file.write(stored_chunk_file.read())
                         stored_chunk_file.close()
                         os.unlink(stored_chunk_file_name)

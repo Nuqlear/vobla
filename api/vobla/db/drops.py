@@ -5,13 +5,21 @@ import sqlalchemy as sa
 from hashids import Hashids
 
 from vobla.db.orm import Model
+from vobla.db.users import User
 from vobla.settings import config
 
 
 hashids = Hashids(salt=config['tornado']['secret_key'], min_length=16)
 
 
-class Drop(Model):
+class GenHashMixin(object):
+
+    @staticmethod
+    def gen_hash(*args):
+        return hashids.encode(*args)
+
+
+class Drop(Model, GenHashMixin):
     __tablename__ = 'drop'
     schema = [
         sa.Column('id', sa.Integer, primary_key=True),
@@ -30,14 +38,14 @@ class Drop(Model):
         async with pgc.begin():
             obj = cls(name=name, owner_id=owner.id)
             await obj.insert(pgc, [obj.c.created_at])
-            obj.hash = '{}'.format(hashids.encode(obj.id, ord('d')))
+            obj.hash = '{}'.format(cls.gen_hash(obj.id, ord('d')))
             if name is None:
                 obj.name = obj.hash
             await obj.update(pgc)
             return obj
 
 
-class DropFile(Model):
+class DropFile(Model, GenHashMixin):
     __tablename__ = 'drop_file'
     schema = [
         sa.Column('id', sa.Integer, primary_key=True),

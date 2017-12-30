@@ -43,19 +43,7 @@ class DropsUploadTest(TestMixin):
             patch.stop()
         super(DropsUploadTest, cls).tearDownClass()
 
-    async def upload_chunk(self, data, **kwargs):
-        token = kwargs.pop('token', None)
-        drop_hash = kwargs.get('drop_hash', None)
-        drop_file_hash = kwargs.get('drop_file_hash', None)
-        headers = {}
-        headers['Authorization'] = f'bearer {token}'
-        headers['Chunk-Number'] = kwargs.get('chunk_number')
-        headers['Chunk-Size'] = kwargs.get('chunk_size')
-        headers['File-Total-Size'] = kwargs.get('file_total_size')
-        if drop_file_hash is not None:
-            headers['Drop-File-Hash'] = drop_file_hash
-        if drop_hash is not None:
-            headers['Drop-Hash'] = drop_hash
+    async def _upload_chunk(self, data, headers):
         headers = {
             key: str(value) for key, value in headers.items()
         }
@@ -78,67 +66,180 @@ class DropsUploadTest(TestMixin):
             response._body = json.loads(response._body)
         return response
 
-    @gen_test
-    async def test_valid_upload(self):
-        data = {
-            'email': 'email',
-            'password_hash': 'pass',
-        }
-        async with self._app.pg.acquire() as conn:
-            u = await User.insert(conn, data)
-        token = u.make_jwt()
-        chunk_size = 100
-        drop_hash = None
+    async def _test_valid_upload(self, pgc, token, chunk_size, drop_hash=None):
         file_path = os.path.join(
             os.path.dirname(__file__),
             'fixtures',
             'python-logo.png'
         )
         file_total_size = os.stat(file_path).st_size
+        headers = {
+            'Authorization': f'bearer {token}',
+            'Chunk-Number': 1,
+            'Chunk-Size': chunk_size,
+            'File-Total-Size': file_total_size
+        }
+        if drop_hash is not None:
+            headers['Drop-Hash'] = drop_hash
+        drop_file = None
         with open(file_path, 'rb') as f:
             data = f.read()
-            response = await self.upload_chunk(
-                data[:chunk_size],
-                token=token,
-                chunk_number=1,
-                chunk_size=chunk_size,
-                file_total_size=file_total_size,
-                drop_hash=drop_hash
+            response = await self._upload_chunk(
+                data[:chunk_size], headers
             )
+            assert 'drop_file_hash' in response.body
+            assert 'drop_hash' in response.body
+            drop_file_hash = response.body['drop_file_hash']
+            drop_hash = response.body['drop_hash']
             if file_total_size > chunk_size:
                 assert response.code == 200
-                assert 'drop_file_hash' in response.body
-                drop_file_hash = response.body['drop_file_hash']
-                drop_hash = response.body['drop_hash']
                 for chunk_number in count(2):
                     offset = (chunk_number - 1) * chunk_size
                     limit = chunk_number * chunk_size
                     send_data = data[offset:limit]
-                    response = await self.upload_chunk(
-                        send_data,
-                        token=token,
-                        chunk_number=chunk_number,
-                        chunk_size=chunk_size,
-                        file_total_size=file_total_size,
-                        drop_file_hash=drop_file_hash,
-                        drop_hash=drop_hash
+                    headers.update({
+                        'Chunk-Number': chunk_number,
+                        'Drop-File-Hash': drop_file_hash,
+                        'Drop-Hash': drop_hash
+                    })
+                    response = await self._upload_chunk(
+                        send_data, headers
                     )
                     if chunk_number * chunk_size >= file_total_size:
-                        assert response.code == 201
-                        drop_file = await DropFile.select(
-                            conn,
-                            and_(
-                                DropFile.c.hash==drop_file_hash,
-                                Drop.c.hash==drop_hash
-                            )
-                        )
-                        assert drop_file is not None
-                        assert os.path.exists(drop_file.file_path) is True
-                        assert drop_file.mimetype == 'image/png'
-                        with open(drop_file.file_path, 'rb') as uploaded_f:
-                            assert uploaded_f.read() == data
                         break
                     else:
                         assert response.code == 200
-            else:
-                assert response.code == 201
+        assert response.code == 201
+        drop_file = await DropFile.select(
+            pgc,
+            and_(
+                DropFile.c.hash==drop_file_hash,
+                Drop.c.hash==drop_hash
+            )
+        )
+        assert drop_file is not None
+        assert os.path.exists(drop_file.file_path) is True
+        assert drop_file.mimetype == 'image/png'
+        with open(drop_file.file_path, 'rb') as uploaded_f:
+            assert uploaded_f.read() == data
+        return drop_file
+
+    @gen_test
+    async def test_valid_upload(self):
+        '''
+        test DropFile upload by one and multiple chunks.
+        '''
+        data = {
+            'email': 'email',
+            'password_hash': 'pass',
+        }
+        async with self._app.pg.acquire() as conn:
+            u = await User.insert(conn, data)
+            token = u.make_jwt()
+            drop = await Drop.create(conn, u)
+            # 100000b should be enough to upload fixture file by one request
+            chunk_sizes = [100, 100000]
+            for chunk_size in chunk_sizes:
+                drop_file = await self._test_valid_upload(
+                    conn, token, chunk_size
+                )
+                assert drop_file.drop_id != drop.id
+            for chunk_size in chunk_sizes:
+                drop_file = await self._test_valid_upload(
+                    conn, token, chunk_size, drop.hash
+                )
+                assert drop_file.drop_id == drop.id
+
+    @gen_test
+    async def test_invalid_token(self):
+        headers = {
+            'Authorization': f'bearer asdasda',
+            'Chunk-Number': 1,
+            'Chunk-Size': 100,
+            'File-Total-Size': 100
+        }
+        data = os.urandom(100)
+        resp = await self._upload_chunk(data, headers)
+        self.assertValidationError(
+            resp, 'Authorization', errors.validation.VoblaJWTAuthError.code
+        )
+
+    @gen_test
+    async def test_invalid_hashes(self):
+        user_data = {
+            'email': 'email',
+            'password_hash': 'pass',
+        }
+        async with self._app.pg.acquire() as conn:
+            u = await User.insert(conn, user_data)
+            drop = await Drop.create(conn, u)
+            dropfile = await DropFile.create(conn, drop)
+            data = os.urandom(100)
+            user_data['email'] = 'email2'
+            u2 = await User.insert(conn, user_data)
+            u2_token = u2.make_jwt()
+            # logic for first and next chunks has some differencies
+            for chunk_number in [1, 2]:
+                # non-existing dropfile's hash
+                headers = {
+                    'Authorization': f'bearer {u2_token}',
+                    'Chunk-Number': chunk_number,
+                    'Chunk-Size': 100,
+                    'File-Total-Size': 200,
+                    'Drop-Hash': Drop.gen_hash(-1)
+                }
+                resp = await self._upload_chunk(data, headers)
+                self.assertValidationError(resp, 'Drop-Hash', 404)
+                # hash of dropfile owned by another user
+                headers = {
+                    'Authorization': f'bearer {u2_token}',
+                    'Chunk-Number': chunk_number,
+                    'Chunk-Size': 100,
+                    'File-Total-Size': 100,
+                    'Drop-Hash': drop.hash
+                }
+                resp = await self._upload_chunk(data, headers)
+                self.assertValidationError(resp, 'Drop-Hash', 403)
+                # nonexisting drop's hash
+                headers = {
+                    'Authorization': f'bearer {u2_token}',
+                    'Chunk-Number': chunk_number,
+                    'Chunk-Size': 100,
+                    'File-Total-Size': 100,
+                    'Drop-File-Hash': DropFile.gen_hash(-1)
+                }
+                resp = await self._upload_chunk(data, headers)
+                self.assertValidationError(resp, 'Drop-File-Hash', 404)
+                # hash of drop owned by another user
+                headers = {
+                    'Authorization': f'bearer {u2_token}',
+                    'Chunk-Number': chunk_number,
+                    'Chunk-Size': 100,
+                    'File-Total-Size': 100,
+                    'Drop-File-Hash': dropfile.hash
+                }
+                resp = await self._upload_chunk(data, headers)
+                self.assertValidationError(resp, 'Drop-File-Hash', 403)
+
+    @gen_test
+    async def test_invalid_chunk_number(self):
+        user_data = {
+            'email': 'email',
+            'password_hash': 'pass',
+        }
+        async with self._app.pg.acquire() as conn:
+            u = await User.insert(conn, user_data)
+            drop = await Drop.create(conn, u)
+            dropfile = await DropFile.create(conn, drop)
+            token = u.make_jwt()
+            resp = await self._upload_chunk(
+                os.urandom(100), {
+                    'Authorization': f'bearer {token}',
+                    'Chunk-Number': 2,
+                    'Chunk-Size': 100,
+                    'File-Total-Size': 200,
+                    'Drop-Hash': drop.hash,
+                    'Drop-File-Hash': dropfile.hash
+                }
+            )
+            self.assertValidationError(resp, 'Chunk-Number', 422)

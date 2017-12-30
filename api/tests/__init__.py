@@ -67,3 +67,14 @@ class TestMixin(AsyncHTTPTestCase):
         resp = await self.fetch(url, *ar, **kw)
         resp._body = json.loads(resp.body)
         return resp
+
+    @staticmethod
+    def assertValidationError(resp, nonvalidated_fields, code=422):
+        assert resp.code == code
+        assert 'error' in resp.body
+        assert 'fields' in resp.body['error']
+        if isinstance(nonvalidated_fields, list):
+            for field in nonvalidated_fields:
+                assert field in resp.body['error']['fields']
+        else:
+            assert nonvalidated_fields in resp.body['error']['fields']
