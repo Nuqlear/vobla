@@ -7,6 +7,5 @@ class BaseSchema(Schema):
         strict = True
 
 
-from . import auth
-from . import validation
-from . import drops
+from vobla.schemas import args
+from vobla.schemas import serializers

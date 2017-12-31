@@ -123,7 +123,7 @@ class LoginTest(TestMixin):
         assert 'token' in resp.body
 
 
-class SyncTest(TestMixin):
+class JWTCheckTest(TestMixin):
 
     async def _test_case(self, jwt, code):
         headers = (

@@ -12,7 +12,3 @@ class UserSignupSchema(BaseSchema):
     email = fields.Str(required=True)
     password = fields.Str(required=True)
     invite_code = fields.Str(required=True)
-
-
-class SuccessfulAuthSchema(BaseSchema):
-    token = fields.Str()

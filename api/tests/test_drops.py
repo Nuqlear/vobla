@@ -5,9 +5,10 @@ import tempfile
 from itertools import count
 from io import BytesIO
 from unittest import mock
+from datetime import datetime
+from datetime import timezone
 
 import requests
-from passlib.hash import pbkdf2_sha256
 from sqlalchemy import and_
 from tornado.testing import gen_test
 
@@ -42,7 +43,198 @@ class DropsTestMixin(TestMixin):
         super(DropsTestMixin, cls).tearDownClass()
 
 
-class DropsUploadTest(DropsTestMixin):
+class UserDropsHandlerTest(DropsTestMixin):
+
+    @gen_test
+    async def test_GET_valid_args(self):
+        user_data = {
+            'email': 'email',
+            'password_hash': 'pass',
+        }
+        async with self._app.pg.acquire() as conn:
+            u = await models.User.insert(conn, user_data)
+            token = u.make_jwt()
+            drop = await models.Drop.create(conn, u)
+            await models.DropFile.create(conn, drop)
+            resp = await self.fetch_json(
+                '/api/drops/',
+                method='GET',
+                headers={
+                    'Authorization': f'bearer {token}',
+                }
+            )
+            assert resp.code == 200
+            assert 'drops' in resp.body
+            drops = resp.body['drops']
+            assert len(drops) == 1
+            for attr in (
+                'name', 'hash'
+            ):
+                assert getattr(drop, attr) == drops[0][attr]
+            assert drops[0]['owner']['email'] == u.email
+            assert (
+                drop.created_at.replace(tzinfo=timezone.utc).isoformat() ==
+                drops[0]['created_at']
+            )
+            assert 'dropfiles' in drops[0]
+            assert len(drops[0]['dropfiles']) == 0
+            dropfile2 = await models.DropFile.create(conn, drop)
+            dropfile2.uploaded_at = datetime.utcnow()
+            await dropfile2.update(conn)
+            resp = await self.fetch_json(
+                '/api/drops/',
+                method='GET',
+                headers={
+                    'Authorization': f'bearer {token}',
+                }
+            )
+            assert 'drops' in resp.body
+            drops = resp.body['drops']
+            assert len(drops) == 1
+            assert 'dropfiles' in drops[0]
+            assert len(drops[0]['dropfiles']) == 1
+            for attr in (
+                'name', 'hash', 'mimetype'
+            ):
+                assert (
+                    getattr(dropfile2, attr, None) ==
+                    drops[0]['dropfiles'][0][attr]
+                )
+            assert (
+                (
+                    dropfile2.uploaded_at
+                    .replace(tzinfo=timezone.utc).isoformat()
+                ) == drops[0]['dropfiles'][0]['uploaded_at']
+            )
+
+    @gen_test
+    async def test_GET_unauthorized(self):
+        resp = await self.fetch_json(
+            '/api/drops/',
+            method='GET',
+        )
+        self.assertValidationError(resp, 'Authorization', 401)
+
+
+class CreateDropFileMixin(object):
+
+    async def _create_dropfile(self, conn):
+        user_data = {
+            'email': 'email',
+            'password_hash': 'pass',
+        }
+        u = await models.User.insert(conn, user_data)
+        drop = await models.Drop.create(conn, u)
+        dropfile = await models.DropFile.create(conn, drop)
+        return u, drop, dropfile
+
+
+class DropHandlerTest(DropsTestMixin, CreateDropFileMixin):
+
+    @gen_test
+    async def test_GET_valid(self):
+        async with self._app.pg.acquire() as conn:
+            u, drop, dropfile = await self._create_dropfile(conn)
+            resp = await self.fetch_json(
+                f'/api/drops/{drop.hash}',
+                method='GET'
+            )
+            assert resp.code == 200
+            for attr in (
+                'name', 'hash'
+            ):
+                assert getattr(drop, attr) == resp.body[attr]
+            assert resp.body['owner']['email'] == u.email
+            assert (
+                drop.created_at.replace(tzinfo=timezone.utc).isoformat() ==
+                resp.body['created_at']
+            )
+            assert 'dropfiles' in resp.body
+            assert len(resp.body['dropfiles']) == 0
+            dropfile2 = await models.DropFile.create(conn, drop)
+            dropfile2.uploaded_at = datetime.utcnow()
+            await dropfile2.update(conn)
+            resp = await self.fetch_json(
+                f'/api/drops/{drop.hash}',
+                method='GET'
+            )
+            assert 'dropfiles' in resp.body
+            assert len(resp.body['dropfiles']) == 1
+            for attr in (
+                'name', 'hash', 'mimetype'
+            ):
+                assert (
+                    getattr(dropfile2, attr, None) ==
+                    resp.body['dropfiles'][0][attr]
+                )
+            assert (
+                (
+                    dropfile2.uploaded_at
+                    .replace(tzinfo=timezone.utc).isoformat()
+                ) == resp.body['dropfiles'][0]['uploaded_at']
+            )
+
+    @gen_test
+    async def test_DELETE_valid(self):
+        async with self._app.pg.acquire() as conn:
+            user, drop, dropfile = await self._create_dropfile(conn)
+            token = user.make_jwt()
+            resp = await self.fetch(
+                f'/api/drops/files/{dropfile.hash}',
+                method='DELETE',
+                headers={
+                    'Authorization': f'bearer {token}',
+                }
+            )
+            assert resp.code == 200
+            dropfile = await models.DropFile.select(
+                conn, models.DropFile.c.id==dropfile.id
+            )
+            assert dropfile is None
+
+    @gen_test
+    async def test_DELETE_unauthorized(self):
+        async with self._app.pg.acquire() as conn:
+            _, drop, _ = await self._create_dropfile(conn)
+        resp = await self.fetch_json(
+            f'/api/drops/{drop.hash}',
+            method='DELETE',
+        )
+        self.assertValidationError(resp, 'Authorization', 401)
+
+
+class DropFileHandler(DropsTestMixin, CreateDropFileMixin):
+
+    @gen_test
+    async def test_DELETE_unauthorized(self):
+        async with self._app.pg.acquire() as conn:
+            _, _, dropfile = await self._create_dropfile(conn)
+        resp = await self.fetch_json(
+            f'/api/drops/files/{dropfile.hash}',
+            method='DELETE',
+        )
+        self.assertValidationError(resp, 'Authorization', 401)
+
+    @gen_test
+    async def test_DELETE_valid(self):
+        async with self._app.pg.acquire() as conn:
+            user, drop, dropfile = await self._create_dropfile(conn)
+            token = user.make_jwt()
+            resp = await self.fetch(
+                f'/api/drops/files/{dropfile.hash}',
+                method='DELETE',
+                headers={
+                    'Authorization': f'bearer {token}',
+                }
+            )
+            assert resp.code == 200
+            dropfile = await models.DropFile.select(
+                conn, models.DropFile.c.id==dropfile.id
+            )
+            assert dropfile is None
+
+
+class DropUploadHandlerTest(DropsTestMixin):
 
     async def _upload_chunk(self, data, headers):
         headers = {
@@ -125,8 +317,8 @@ class DropsUploadTest(DropsTestMixin):
             assert uploaded_f.read() == data
         return drop_file
 
-    @gen_test
-    async def test_valid_upload(self):
+    @gen_test(timeout=15)
+    async def test_POST_full_valid_cycle(self):
         '''
         test DropFile upload by one and multiple chunks.
         '''
@@ -152,7 +344,7 @@ class DropsUploadTest(DropsTestMixin):
                 assert drop_file.drop_id == drop.id
 
     @gen_test
-    async def test_invalid_token(self):
+    async def test_POST_invalid_token(self):
         headers = {
             'Authorization': f'bearer asdasda',
             'Chunk-Number': 1,
@@ -166,7 +358,7 @@ class DropsUploadTest(DropsTestMixin):
         )
 
     @gen_test
-    async def test_invalid_hashes(self):
+    async def test_POST_invalid_hashes(self):
         user_data = {
             'email': 'email',
             'password_hash': 'pass',
@@ -191,7 +383,7 @@ class DropsUploadTest(DropsTestMixin):
                 }
                 resp = await self._upload_chunk(data, headers)
                 self.assertValidationError(resp, 'Drop-Hash', 404)
-                # hash of dropfile owned by another user
+                # hash of dropfile which owned by another user
                 headers = {
                     'Authorization': f'bearer {u2_token}',
                     'Chunk-Number': chunk_number,
@@ -211,7 +403,7 @@ class DropsUploadTest(DropsTestMixin):
                 }
                 resp = await self._upload_chunk(data, headers)
                 self.assertValidationError(resp, 'Drop-File-Hash', 404)
-                # hash of drop owned by another user
+                # hash of dropfile which owned by another user
                 headers = {
                     'Authorization': f'bearer {u2_token}',
                     'Chunk-Number': chunk_number,
@@ -223,7 +415,7 @@ class DropsUploadTest(DropsTestMixin):
                 self.assertValidationError(resp, 'Drop-File-Hash', 403)
 
     @gen_test
-    async def test_invalid_chunk_number(self):
+    async def test_POST_invalid_chunk_number(self):
         user_data = {
             'email': 'email',
             'password_hash': 'pass',
@@ -244,10 +436,3 @@ class DropsUploadTest(DropsTestMixin):
                 }
             )
             self.assertValidationError(resp, 'Chunk-Number', 422)
-
-
-class DropsInfoTest(DropsTestMixin):
-
-    @gen_test
-    async def test_va_upload(self):
-        pass

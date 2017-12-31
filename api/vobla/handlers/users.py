@@ -1,7 +1,7 @@
 import psycopg2
 from webargs.tornadoparser import use_args
 
-from vobla import schemas
+from vobla.schemas import args
 from vobla import errors
 from vobla.handlers import BaseHandler
 from vobla.utils import jwt_auth
@@ -12,7 +12,7 @@ from vobla.db import models
 @api_spec_exists
 class SignupHandler(BaseHandler):
 
-    @use_args(schemas.auth.UserSignupSchema, locations=('json', ))
+    @use_args(args.auth.UserSignupSchema, locations=('json', ))
     async def post(self, reqargs):
         '''
         ---
@@ -63,7 +63,7 @@ class SignupHandler(BaseHandler):
 @api_spec_exists
 class LoginHandler(BaseHandler):
 
-    @use_args(schemas.auth.UserLoginSchema, locations=('json', ))
+    @use_args(args.auth.UserLoginSchema, locations=('json', ))
     async def post(self, reqargs):
         '''
         ---

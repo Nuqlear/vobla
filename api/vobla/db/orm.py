@@ -103,7 +103,7 @@ class Model(object, metaclass=ModelMeta):
             obj = cls._construct_from_row(res)
             return [obj] if return_list else obj
         else:
-            return None
+            return [] if return_list else None
 
     @classmethod
     async def _class_insert(cls, pgc, values, returning=None):

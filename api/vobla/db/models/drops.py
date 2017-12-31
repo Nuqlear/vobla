@@ -2,10 +2,13 @@ import datetime
 import os
 
 import sqlalchemy as sa
+from sqlalchemy import and_
+from sqlalchemy.sql import select
 from hashids import Hashids
 
 from vobla.db.orm import Model
 from vobla.db.models.users import User
+from vobla.schemas import serializers
 from vobla.settings import config
 
 
@@ -32,42 +35,43 @@ class Drop(Model, GenHashMixin):
         sa.Column('hash', sa.String(16)),
         sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow)
     ]
+    serializer = serializers.drops.DropSchema()
+
+    async def serialize(self, pgc, *args, owner=None, dropfiles=None):
+        if owner is None:
+            owner = await User.select(pgc, User.c.id==self.owner_id)
+        if dropfiles is None:
+            dropfiles = await DropFile.select(
+                pgc,
+                and_(
+                    DropFile.c.drop_id==self.id,
+                    DropFile.c.uploaded_at.isnot(None),
+                ),
+                return_list=True
+            )
+        self.owner = owner
+        self.dropfiles = dropfiles
+        return self.serializer.dump(self, many=False).data
 
     @classmethod
-    async def fetch_and_serialize(cls, pgc, id_or_ids):
+    async def fetch_and_serialize(cls, pgc, ids):
         async with pgc.begin():
-            if isinstance(id_or_ids, list):
-                drop = await cls.select(cls.c.id==id_or_ids)
-                owner = await User.select(id==drop.owner_id)
-                files = await DropFile.select(
-                    cls.c.drop_id==id_or_ids, cls.c.uploaded_at!=None,
+            if not isinstance(ids, list):
+                ids = [ids]
+            drops = await cls.select(
+                pgc, cls.c.id.in_(ids), return_list=True
+            )
+            for drop in drops:
+                drop.owner = await User.select(pgc, cls.c.id==drop.owner_id)
+                drop.dropfiles = await DropFile.select(
+                    pgc,
+                    and_(
+                        DropFile.c.drop_id==drop.id,
+                        DropFile.c.uploaded_at.isnot(None),
+                    ),
                     return_list=True
                 )
-                return {
-                    'name': drop.name,
-                    'hash': drop.hash,
-                    'created_at': drop.created_at,
-                    'owner': {
-                        'email': owner.email
-                    },
-                    'dropfiles': [
-                        {
-                            'name': file.name,
-                            'hash': file.hash,
-                            'mimetype': file.mimetype,
-                            'uploaded_at': file.uploaded_at
-                        }
-                        for file in files
-                    ]
-                }
-            else:
-                query = (
-                    cls.t.select().where(Drop.c.id.in_(id_or_ids))
-                    .order_by(Drop.c.id)
-                )
-                cursor = await pgc.execute(query)
-                res = await cursor.fetchmany()
-                return res
+            return cls.serializer.dump(drops, many=True).data
 
     @classmethod
     async def create(cls, pgc, owner, name=None):

@@ -2,11 +2,8 @@ import os
 import magic
 from datetime import datetime
 
-import psycopg2
-from webargs.tornadoparser import use_args
-from sqlalchemy import and_
+from sqlalchemy import and_, select
 
-from vobla import schemas
 from vobla import errors
 from vobla.handlers import BaseHandler
 from vobla.utils import jwt_auth
@@ -17,6 +14,7 @@ from vobla.db import models
 @api_spec_exists
 class UserDropsHandler(BaseHandler):
 
+    @jwt_auth.jwt_needed
     async def get(self):
         '''
         ---
@@ -31,6 +29,7 @@ class UserDropsHandler(BaseHandler):
         responses:
             200:
                 decsription: OK
+                schema: DropSchema
             401:
                 description: Invalid/Missing authorization header
                 schema: ValidationErrorSchema
@@ -39,11 +38,10 @@ class UserDropsHandler(BaseHandler):
             self.pgc, models.Drop.c.owner_id==self.user.id
         )
         data = {
-            'drops': []
+            'drops': await models.Drop.fetch_and_serialize(self.pgc, drops.id)
         }
         self.set_status(200)
-        self.write(data)
-        self.finish()
+        self.finish(data)
 
 
 @api_spec_exists
@@ -62,15 +60,21 @@ class DropHandler(BaseHandler):
         responses:
             200:
                 decsription: OK
+                schema: DropSchema
+            404:
+                description: Drop with such hash is not found
+                schema: VoblaHTTPErrorSchema
         '''
         drop = await models.Drop.select(
             self.pgc, models.Drop.c.hash==drop_hash
         )
-        data = {
-        }
+        if drop is None:
+            raise errors.http.VoblaHTTPError(
+                404, 'Drop with such hash is not found.'
+            )
+        data = await drop.serialize(self.pgc)
         self.set_status(200)
-        self.write(data)
-        self.finish()
+        self.finish(data)
 
     @jwt_auth.jwt_needed
     async def delete(self, drop_hash):
@@ -94,7 +98,7 @@ class DropHandler(BaseHandler):
                 description: Invalid/Missing authorization header
                 schema: ValidationErrorSchema
         '''
-        await Drop.delete(
+        await models.Drop.delete(
             self.pgc,
             and_(
                 models.Drop.c.hash==drop_hash,
@@ -106,13 +110,13 @@ class DropHandler(BaseHandler):
 
 
 @api_spec_exists
-class DropFilesHandler(BaseHandler):
+class DropFileHandler(BaseHandler):
 
     @jwt_auth.jwt_needed
     async def delete(self, drop_file_hash):
         '''
         ---
-        description: Delete User's Drop
+        description: Delete User's DropFile
         tags:
             - drops
         parameters:
@@ -121,7 +125,7 @@ class DropFilesHandler(BaseHandler):
               type: string
               required: true
             - in: path
-              name: drop_hash
+              name: drop_file_hash
               type: string
         responses:
             200:
@@ -130,52 +134,31 @@ class DropFilesHandler(BaseHandler):
                 description: Invalid/Missing authorization header
                 schema: ValidationErrorSchema
         '''
-        await DropFile.select(
-            self.pgc,
-            and_(
-                models.DropFile.c.hash==drop_file_hash,
-                models.DropFile.c.owner_id==self.user.id
+        user_drops_cte = (
+            select([models.Drop.c.id]).where(
+                models.Drop.c.owner_id==self.user.id
+            ).cte("user_drops")
+        )
+        query = (
+            models.DropFile.t.delete().where(
+                and_(
+                    models.DropFile.c.hash==drop_file_hash,
+                    models.DropFile.c.drop_id.in_(
+                        select([user_drops_cte.c.id])
+                    )
+                )
             )
         )
+        await self.pgc.execute(query)
         self.set_status(200)
-        self.finish()
-
-    async def get(self, drop_file_hash):
-        '''
-        ---
-        description: Delete User's Drop
-        tags:
-            - drops
-        parameters:
-            - in: header
-              name: 'Authorization'
-              type: string
-              required: true
-            - in: path
-              name: drop_hash
-              type: string
-        responses:
-            200:
-                decsription: OK
-            401:
-                description: Invalid/Missing authorization header
-                schema: ValidationErrorSchema
-        '''
-        drop_file = await models.DropFile.select(
-            self.pgc, models.DropFile.c.hash==drop_file_hash
-        )
-        data = {
-        }
-        self.set_status(200)
-        self.write(data)
         self.finish()
 
 
 @api_spec_exists
-class DropsUploadHandler(BaseHandler):
+class DropUploadHandler(BaseHandler):
 
     def set_default_headers(self):
-        super(DropsUploadHandler, self).set_default_headers()
+        super(DropUploadHandler, self).set_default_headers()
         self.set_header(
             'Access-Control-Allow-Headers',
             (
@@ -239,7 +222,7 @@ class DropsUploadHandler(BaseHandler):
                 description: Chunk uploaded
             200:
                 description: First chunk uploaded
-                schema: DropFileUploadedSchema
+                schema: DropFileFirstChunkUploadSchema
             401:
                 description: Invalid/Missing authorization header
                 schema: ValidationErrorSchema
@@ -376,7 +359,7 @@ class DropsUploadHandler(BaseHandler):
 
 
 @api_spec_exists
-class DropFilesContentHandler(BaseHandler):
+class DropFileContentHandler(BaseHandler):
 
     async def get(self, drop_file_hash):
         '''
@@ -394,20 +377,22 @@ class DropFilesContentHandler(BaseHandler):
                 description: OK
             404:
                 description: DropFile with such hash is not found
+                schema: VoblaHTTPErrorSchema
         '''
         async with self.pgc.begin():
-            df = await models.DropFile.select(
+            dropfile = await models.DropFile.select(
                 self.pgc,
                 and_(
                     models.DropFile.c.hash==drop_file_hash,
                     models.DropFile.c.uploaded_at.isnot(None)
                 )
             )
-            if not df:
-                self.set_status(404)
-                self.finish()
-            self.set_header('Content-Type', df.mimetype)
-            with open(df.file_path, 'rb') as f:
+            if not dropfile:
+                raise errors.http.VoblaHTTPError(
+                    404, 'DropFile with such hash is not found.'
+                )
+            self.set_header('Content-Type', dropfile.mimetype)
+            with open(dropfile.file_path, 'rb') as f:
                 self.write(f.read())
             self.set_status(200)
             self.finish()
