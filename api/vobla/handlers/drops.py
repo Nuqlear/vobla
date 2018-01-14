@@ -9,6 +9,7 @@ from vobla.handlers import BaseHandler
 from vobla.utils import jwt_auth
 from vobla.utils import api_spec_exists
 from vobla.db import models
+from vobla.schemas.serializers.drops import DropFileFirstChunkUploadSchema
 
 
 @api_spec_exists
@@ -351,10 +352,13 @@ class DropUploadHandler(BaseHandler):
             else:
                 self.set_status(200)
             if chunk_number == 1:
-                self.write({
-                    'drop_file_hash': drop_file.hash,
-                    'drop_hash': drop.hash
-                })
+                serializer = DropFileFirstChunkUploadSchema()
+                self.write(
+                    serializer.dump({
+                        'drop_file_hash': drop_file.hash,
+                        'drop_hash': drop.hash
+                    }).data
+                )
         self.finish()
 
 

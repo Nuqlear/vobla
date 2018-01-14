@@ -45,6 +45,8 @@ class DropsTestMixin(TestMixin):
 
 class UserDropsHandlerTest(DropsTestMixin):
 
+    url = '/api/drops'
+
     @gen_test
     async def test_GET_valid_args(self):
         user_data = {
@@ -57,7 +59,7 @@ class UserDropsHandlerTest(DropsTestMixin):
             drop = await models.Drop.create(conn, u)
             await models.DropFile.create(conn, drop)
             resp = await self.fetch_json(
-                '/api/drops/',
+                self.url,
                 method='GET',
                 headers={
                     'Authorization': f'bearer {token}',
@@ -82,7 +84,7 @@ class UserDropsHandlerTest(DropsTestMixin):
             dropfile2.uploaded_at = datetime.utcnow()
             await dropfile2.update(conn)
             resp = await self.fetch_json(
-                '/api/drops/',
+                self.url,
                 method='GET',
                 headers={
                     'Authorization': f'bearer {token}',
@@ -110,7 +112,7 @@ class UserDropsHandlerTest(DropsTestMixin):
     @gen_test
     async def test_GET_unauthorized(self):
         resp = await self.fetch_json(
-            '/api/drops/',
+            self.url,
             method='GET',
         )
         self.assertValidationError(resp, 'Authorization', 401)
@@ -282,6 +284,7 @@ class DropUploadHandlerTest(DropsTestMixin):
             )
             assert 'drop_file_hash' in response.body
             assert 'drop_hash' in response.body
+            assert 'url' in response.body
             drop_file_hash = response.body['drop_file_hash']
             drop_hash = response.body['drop_hash']
             if file_total_size > chunk_size:
