@@ -1,35 +1,46 @@
 version: '3'
 services:
-  vobla-api-service:
+  backend:
     command: ["bash", "./wait-for-postgres.sh", "python manage.py --migrate runserver"]
     volumes:
       - ./wait-for-postgres.sh:/wait-for-postgres.sh
       - ./volumes/vobla:/var/vobla
-    depends_on:
-      - mongo-service
-      - redis-service
-      - postgres-service
     environment:
-      - 'ENV=prod'
-  mongo-service:
+      - ENV=prod
+  backend-worker:
+    build: backend
+    command: ["python", "manage.py", "runworker"]
+    image: nuqlya/vobla-api:latest
     volumes:
-      - ./volumes/mongodb/data/db:/data/db
-  postgres-service:
+      - ./volumes/vobla:/var/vobla
+    depends_on:
+      - redis
+    environment:
+      - TORNADO_SECRET_KEY=${TORNADO_SECRET_KEY}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - ENV=prod
+  postgres:
     volumes:
       - ./volumes/postgres/var/lib/postgresql/data:/var/lib/postgresql/data
-  vobla-frontend-service:
+  frontend:
     build: frontend
     image: nuqlya/vobla-frontend:latest
     command: npm run build
+    environment:
+      - NODE_ENV=production
     depends_on:
-      - vobla-api-service
+      - backend
     volumes:
-      - ./frontend/build:/build
-  swagger-ui-service:
+      - ./frontend/dist:/dist
+  swagger:
     image: swaggerapi/swagger-ui
     depends_on:
-      - vobla-api-service
+      - backend
     environment:
-      - 'API_URL=https://vobla.olegshigor.in/api/open_api2.json'
+      - API_URL=https://vobla.olegshigor.in/api/open_api2.json
     ports:
-      - '${VOBLA_SWAGGER_PORT}:8080'
+      - ${VOBLA_SWAGGER_PORT}:8080

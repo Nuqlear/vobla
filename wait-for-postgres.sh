@@ -1,6 +1,6 @@
 set -e
 cmd="$@"
-until pg_isready -h "postgres-service" -p "5432"
+until pg_isready -h "postgres" -p "5432"
 do
     sleep 1
 done

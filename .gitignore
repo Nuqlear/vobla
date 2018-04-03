@@ -3,6 +3,7 @@
 .AppleDouble
 .LSOverride
 Icon
+.ropeproject
 
 # Thumbnails
 ._*
@@ -34,5 +35,5 @@ __pycache__
 
 
 volumes
-old_frontend
-build
+frontend/dist/*
+!.gitkeep

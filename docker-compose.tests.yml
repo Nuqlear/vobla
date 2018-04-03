@@ -1,16 +1,17 @@
 version: '3'
 services:
-  vobla-api-service:
+  backend:
     command: ["bash", "./wait-for-postgres.sh", "python manage.py runtests"]
     volumes:
-      - ./api/vobla:/vobla
-      - ./api/manage.py:/manage.py
-      - ./api/tests:/tests
-      - ./api/alembic:/alembic
+      - ./backend/vobla:/vobla
+      - ./backend/manage.py:/manage.py
+      - ./backend/tests:/tests
+      - ./backend/alembic:/alembic
       - ./wait-for-postgres.sh:/wait-for-postgres.sh
-    depends_on:
-      - mongo-service
-      - redis-service
-      - postgres-service
     environment:
-      - 'ENV=tests'
+      - ENV=tests
+      - POSTGRES_DB=test_db
+  postgres:
+    image: postgres:9.3
+    environment:
+      - POSTGRES_DB=test_db

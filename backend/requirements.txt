@@ -1,0 +1,15 @@
+PyJWT==1.5.3
+tornado==4.5.2
+redis==2.10.6
+aiopg==0.13.1
+sqlalchemy==1.1.15
+psycopg2==2.7.3.2
+alembic==0.9.6
+apispec==0.27.0
+pytest==3.2.5
+webargs==1.8.1
+passlib==1.7.1
+hashids==1.2.0
+python-magic==0.4.15
+requests==2.18.4
+celery==4.1.0

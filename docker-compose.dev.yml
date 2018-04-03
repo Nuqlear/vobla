@@ -1,36 +1,55 @@
 version: '3'
 services:
-  vobla-api-service:
+  backend:
     command: ["bash", "./wait-for-postgres.sh", "python manage.py --migrate runserver"]
     volumes:
-      - ./api/vobla:/vobla
-      - ./api/manage.py:/manage.py
-      - ./api/tests:/tests
-      - ./api/alembic:/alembic
+      - ./backend/vobla:/vobla
+      - ./backend/manage.py:/manage.py
+      - ./backend/tests:/tests
+      - ./backend/alembic:/alembic
       - ./wait-for-postgres.sh:/wait-for-postgres.sh
       - ./volumes/vobla:/var/vobla
     environment:
-      - 'ENV=dev'
-  mongo-service:
+      - ENV=dev
+  backend-worker:
+    build: backend
+    command: ["python", "manage.py", "runworker"]
+    image: nuqlya/vobla-api:latest
     volumes:
-      - ./volumes/mongodb/data/db:/data/db
-  postgres-service:
+      - ./backend/vobla:/vobla
+      - ./backend/manage.py:/manage.py
+      - ./volumes/vobla:/var/vobla
+    environment:
+      - TORNADO_SECRET_KEY=${TORNADO_SECRET_KEY}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - ENV=dev
+    depends_on:
+      - redis
+  postgres:
     volumes:
       - ./volumes/postgres/var/lib/postgresql/data:/var/lib/postgresql/data
-  vobla-frontend-service:
+  frontend:
     build: frontend
-    command: npm start
-    ports:
-      - 3000:3000
+    command: npm run start
     volumes:
       - ./frontend/src:/src
+      - ./frontend/yarn.lock:/yarn.lock
+      - ./frontend/package-lock.json:/package-lock.json
+      - ./frontend/package.json:/package.json
+      - ./frontend/index.hbs:/index.hbs
+    ports:
+      - 3000:3000
     depends_on:
-      - vobla-api-service
-  swagger-ui-service:
+      - backend
+  swagger-ui:
     image: swaggerapi/swagger-ui
     depends_on:
-      - vobla-api-service
+      - backend
     environment:
-      - 'API_URL=http://localhost:${VOBLA_API_PORT}/api/open_api2.json'
+      - API_URL=http://localhost:${VOBLA_API_PORT}/api/open_api2.json
     ports:
-      - '${VOBLA_SWAGGER_PORT}:8080'
+      - ${VOBLA_SWAGGER_PORT}:8080

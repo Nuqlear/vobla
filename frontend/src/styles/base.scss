@@ -1,0 +1,36 @@
+body {
+  margin: 0;
+}
+
+@font-face{
+  font-family: 'ectoblasternormal';
+  src: url('../assets/ectoblst-webfont.woff2') format('woff2'),
+       url('../assets/ectoblst-webfont.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+}
+
+.brand {
+  color: white;
+  font-family: 'ectoblasternormal', Arial, Helvetica, sans-serif;
+  font-size: 42pt;
+  cursor: default;
+}
+
+.primary-color-background {
+  min-height: 100vh;
+  min-width: 100vw;
+  background-color: $primary-color;
+}
+
+.loader {
+  background-color: $primary-color
+}
+
+.hidden {
+  visibility: hidden;
+}
+
+.op9 {
+  opacity: 0.9;
+}
