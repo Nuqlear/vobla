@@ -29,9 +29,6 @@ services:
       - ENV=dev
     depends_on:
       - redis
-  postgres:
-    volumes:
-      - ./volumes/postgres/var/lib/postgresql/data:/var/lib/postgresql/data
   frontend:
     build: frontend
     command: npm run start

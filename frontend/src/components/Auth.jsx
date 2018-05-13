@@ -13,10 +13,9 @@ export default props => {
       </div>
       <div className='container'>
         <div className='row'>
-          <div className='col-3'></div>
-          <div className='col-9'>
+          <div className='col-md-9'>
             <div className='row'>
-              <div className='col-6 offset-1'>
+              <div className='col-md-12 offset-md-2'>
                 <div className='brand text-center'>
                   vobla
                 </div>

@@ -23,9 +23,6 @@ services:
       - CELERY_BROKER_URL=${CELERY_BROKER_URL}
       - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
       - ENV=prod
-  postgres:
-    volumes:
-      - ./volumes/postgres/var/lib/postgresql/data:/var/lib/postgresql/data
   frontend:
     build: frontend
     image: nuqlya/vobla-frontend:latest
