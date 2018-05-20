@@ -1,0 +1,14 @@
+version: '3.5'
+services:
+  backend:
+    build:
+      context: backend
+      cache_from:
+        - nuqlya/vobla-api:latest
+
+  frontend:
+    build:
+      context: frontend
+      cache_from:
+        - nuqlya/vobla-api:latest
+    image: nuqlya/vobla-frontend:latest

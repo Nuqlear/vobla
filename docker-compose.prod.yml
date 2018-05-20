@@ -1,4 +1,4 @@
-version: '3'
+version: '3.5'
 services:
   backend:
     command: ["bash", "./wait-for-postgres.sh", "python manage.py --migrate runserver"]
@@ -8,7 +8,6 @@ services:
     environment:
       - ENV=prod
   backend-worker:
-    build: backend
     command: ["python", "manage.py", "runworker"]
     image: nuqlya/vobla-api:latest
     volumes:
@@ -24,7 +23,6 @@ services:
       - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
       - ENV=prod
   frontend:
-    build: frontend
     image: nuqlya/vobla-frontend:latest
     command: npm run build
     environment:

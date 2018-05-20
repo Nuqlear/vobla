@@ -1,7 +1,6 @@
-version: '3'
+version: '3.5'
 services:
   backend:
-    build: backend
     image: nuqlya/vobla-api:latest
     ports:
       - '${VOBLA_API_PORT}:5000'

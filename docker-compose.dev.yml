@@ -1,4 +1,4 @@
-version: '3'
+version: '3.5'
 services:
   backend:
     command: ["bash", "./wait-for-postgres.sh", "python manage.py --migrate runserver"]
