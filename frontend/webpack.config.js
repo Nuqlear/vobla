@@ -109,7 +109,11 @@ module.exports = {
   plugins: [
     new webpack.NamedModulesPlugin(),
     new webpack.HotModuleReplacementPlugin(),
-    new HtmlWebpackPlugin({ hash: false, template: './index.hbs' }),
+    new HtmlWebpackPlugin({
+      hash: false,
+      template: './index.hbs',
+      favicon: './src/assets/favicon.ico'
+    }),
     new webpack.ContextReplacementPlugin(/moment[\/\\]locale$/, /nb/)
   ]
 };

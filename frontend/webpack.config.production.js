@@ -98,7 +98,8 @@ module.exports = {
     new ExtractTextPlugin('assets/styles.css'),
     new HtmlWebpackPlugin({
       hash: false,
-      template: './index.hbs'
+      template: './index.hbs',
+      favicon: './src/assets/favicon.ico'
     })
   ]
 };
