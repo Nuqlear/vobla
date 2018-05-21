@@ -1,0 +1,46 @@
+.get-app {
+  @extend .primary-color-background;
+  color: white;
+
+  padding-top: 20px;
+
+  .brand {
+    padding-right: 15px;
+
+    a, a:hover {
+      text-decoration: none;
+      cursor: pointer;
+      color: white;
+    }
+  }
+
+  .body {
+
+    h5 {
+      font-size: 12pt;
+      padding: 10px;
+    }
+
+    .list-group {
+      padding: 10px;
+
+      .list-group-item {
+        margin: 0 auto;
+        margin-top: 2px;
+        margin-bottom: 2px;
+        width: 100%;
+        max-width: 400px;
+        color: #111111;
+
+        &:hover {
+          color: black;
+          background-color: #eeeeee;
+        }
+
+        .text {
+          margin-left: 10px;
+        }
+      }
+    }
+  }
+}

@@ -17,7 +17,6 @@ export default function Protected(Component) {
     render() {
       const { authenticated, inProgress } = this.store;
       const wrapped = authenticated ? [
-        <Header key='header'/>,
         <Component {...this.props} key='component'/>
       ] : (
         <Redirect

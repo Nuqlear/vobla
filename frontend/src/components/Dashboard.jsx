@@ -28,47 +28,59 @@ class Dashboard extends Component {
   }
 
   checkImagesLoaded = () => {
-     const galleryElement = ReactDOM.findDOMNode(this);
-     const imgElements = galleryElement.querySelectorAll('img');
-     for (const img of imgElements) {
-       if (!img.complete) {
-         return false;
-       }
-     }
-     this.dropStore.previewLoaded();
-   }
+    const galleryElement = ReactDOM.findDOMNode(this);
+    const imgElements = galleryElement.querySelectorAll('img');
+    for (const img of imgElements) {
+      if (!img.complete) {
+        return false;
+      }
+    }
+    this.dropStore.previewLoaded();
+  }
+
+  deleteAllDrops = async () => {
+    await this.dropStore.deleteAllDrops();
+  }
 
   render() {
     const { inProgress, previewIsLoading, drops } = this.dropStore;
-    const isLoading = inProgress || previewIsLoading;
+    const isLoading = inProgress || (previewIsLoading && drops.length != 0);
     const self = this;
+    const menu = [{
+        onClick: this.deleteAllDrops,
+        jsx: 'Delete all'
+      }
+    ];
     return (
-      <div className='contaner'>
-        { isLoading ? <Loader/> : null }
-        <div className={
-          isLoading ? 'dashboard-gallery-items hidden' : 'dashboard-gallery-items'
-        }>
-          { drops.map(function(drop) {
-            return (
-              <Link to={ `/d/${drop.hash}` } key={ drop.hash } className='item'>
-                <div className="image-container">
-                  <img className="img-thumbnail"
-                    src={ self.getDropPreview(drop) } width="100%" alt=""
-                    onLoad={ () => self.checkImagesLoaded() }
-                    onError={ () => self.checkImagesLoaded() }
-                  />
-                </div>
-                <div className='title'>
-                  { drop.name }
-                  <p className='text-muted'>
-                    <Moment format='DD/MM/YYYY'>{ drop.created_at }</Moment>
-                    <br/>
-                    { drop.dropfiles.length } file{ drop.dropfiles.length === 1 ? '' : 's' }
-                  </p>
-                </div>
-              </Link>
-            );
-          }) }
+      <div>
+        <Header navbarRight={ menu } key='header'/>
+        <div className='contaner'>
+          { isLoading ? <Loader/> : null }
+          <div className={
+            isLoading ? 'dashboard-gallery-items hidden' : 'dashboard-gallery-items'
+          }>
+            { drops.map(function(drop) {
+              return (
+                <Link to={ `/d/${drop.hash}` } key={ drop.hash } className='item'>
+                  <div className="image-container">
+                    <img className="img-thumbnail"
+                      src={ self.getDropPreview(drop) } width="100%" alt=""
+                      onLoad={ () => self.checkImagesLoaded() }
+                      onError={ () => self.checkImagesLoaded() }
+                    />
+                  </div>
+                  <div className='title'>
+                    { drop.name }
+                    <p className='text-muted'>
+                      <Moment format='DD/MM/YYYY'>{ drop.created_at }</Moment>
+                      <br/>
+                      { drop.dropfiles.length } file{ drop.dropfiles.length === 1 ? '' : 's' }
+                    </p>
+                  </div>
+                </Link>
+              );
+            }) }
+          </div>
         </div>
       </div>
     );

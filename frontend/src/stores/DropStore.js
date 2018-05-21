@@ -76,4 +76,23 @@ export default class DropStore {
     }
     this.inProgress = false;
   }
+
+  @action async deleteAllDrops(dropHash) {
+    this.previewIsLoading = true;
+    this.inProgress = true;
+    this.drop = undefined;
+    this.drops = [];
+    try {
+      const resp = await axios.delete(
+        '/api/drops'
+      );
+    }
+    catch(e) {
+      console.log(e);
+      console.log(e.resp)
+      this.inProgress = false;
+      return false;
+    }
+    this.inProgress = false;
+  }
 }

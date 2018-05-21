@@ -47,6 +47,32 @@ class UserDropsHandler(BaseHandler):
         self.set_status(200)
         self.finish(data)
 
+    @jwt_auth.jwt_needed
+    async def delete(self):
+        '''
+        ---
+        description: Delete about User's Drops
+        tags:
+            - drops
+        parameters:
+            - in: header
+              name: 'Authorization'
+              type: string
+              required: true
+        responses:
+            200:
+                decsription: OK
+            401:
+                description: Invalid/Missing authorization header
+                schema: ValidationErrorSchema
+        '''
+        await models.Drop.delete(
+            self.pgc,
+            models.Drop.c.owner_id == self.user.id
+        )
+        self.set_status(200)
+        self.finish()
+
 
 def get_drop_paths(drop):
     for dropfile in drop.dropfiles:

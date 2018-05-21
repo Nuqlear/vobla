@@ -117,6 +117,32 @@ class UserDropsHandlerTest(DropsTestMixin):
         )
         self.assertValidationError(resp, 'Authorization', 401)
 
+    @gen_test
+    async def test_DELETE_valid(self):
+        user_data = {
+            'email': 'email',
+            'password_hash': 'pass',
+        }
+        async with self._app.pg.acquire() as conn:
+            user = await models.User.insert(conn, user_data)
+            token = user.make_jwt()
+            drop = await models.Drop.create(conn, user)
+            await models.DropFile.create(conn, drop)
+            resp = await self.fetch(
+                self.url,
+                method='DELETE',
+                headers={
+                    'Authorization': f'bearer {token}',
+                }
+            )
+            assert resp.code == 200
+            drops = await models.Drop.select(
+                conn,
+                models.Drop.c.owner_id == user.id,
+                return_list=True
+            )
+            self.assertListEqual(drops, [])
+
 
 async def _create_dropfile(conn):
     user_data = {
@@ -188,7 +214,7 @@ class DropHandlerTest(DropsTestMixin):
             )
             assert resp.code == 200
             dropfile = await models.DropFile.select(
-                conn, models.DropFile.c.id==dropfile.id
+                conn, models.DropFile.c.id == dropfile.id
             )
             assert dropfile is None
 
@@ -229,7 +255,7 @@ class DropFileHandler(DropsTestMixin):
             )
             assert resp.code == 200
             dropfile = await models.DropFile.select(
-                conn, models.DropFile.c.id==dropfile.id
+                conn, models.DropFile.c.id == dropfile.id
             )
             assert dropfile is None
 
@@ -307,8 +333,8 @@ class DropUploadHandlerTest(DropsTestMixin):
         drop_file = await models.DropFile.select(
             pgc,
             and_(
-                models.DropFile.c.hash==drop_file_hash,
-                models.Drop.c.hash==drop_hash
+                models.DropFile.c.hash == drop_file_hash,
+                models.Drop.c.hash == drop_hash
             )
         )
         assert drop_file is not None

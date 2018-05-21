@@ -7,7 +7,7 @@ import Loader from './Loader';
 
 export default props => {
   return (
-    <div className="auth-container">
+    <div className='auth-container'>
       <div className={ 'auth-info '+ (props.message ? '' : 'hidden') }>
         { props.message }
       </div>

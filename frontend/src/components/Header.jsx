@@ -9,7 +9,8 @@ export default class Header extends Component {
   constructor(props) {
     super(props);
     this.store = this.props.store.authStore;
-    this.protected = this.props.protected || [];
+    this.navbarLeft = this.props.navbarLeft || [];
+    this.navbarRight = this.props.navbarRight || [];
   }
 
   componentDidMount() {
@@ -57,7 +58,7 @@ export default class Header extends Component {
     if (authenticated) {
       navbarRight = (
         <ul className='navbar-nav justify-content-end'>
-          { this.protected.map(function(el, index) {
+          { this.navbarLeft.map(function(el, index) {
             return (
               <li className='nav-item' onClick={ el.onClick } key={ index }>
                 { el.jsx }
@@ -95,6 +96,13 @@ export default class Header extends Component {
           <ul className={ this.state && this.state.dropdownShown ? 'dropdown-menu active' : 'dropdown-menu'}
           onMouseDown={ this.handleMouseDownOnDropDown } onMouseUp={ this.handleMouseUpOnDropDown }>
             <Link to='/getapp' className='dropdown-item'>Get app</Link>
+            { this.navbarRight.map(function(el, index) {
+              return (
+                <li className='dropdown-item' onClick={ el.onClick } key={ index }>
+                  { el.jsx }
+                </li>
+              );
+            }) }
             <Link to='/logout' className='dropdown-item'>Logout</Link>
           </ul>
         </div>

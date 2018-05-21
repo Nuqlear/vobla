@@ -72,16 +72,18 @@ class Drop extends Component {
       }
     ];
     return (
-      <div className='contaner'>
-        <Header protected={ menu }/>
-        { isLoading ? <Loader/> : null }
-        <div className={ isLoading ? 'hidden' : '' }>
-          { !inProgress && drop ? (
-            <div className="drop-item">
-              <img src={ this.getDropPreview(drop) }
-              onLoad={ () => this.checkImagesLoaded() } onError={ () => this.checkImagesLoaded() }/>
-            </div>
-          ) : null }
+      <div>
+        <Header navbarLeft={ menu }/>
+        <div className='contaner'>
+          { isLoading ? <Loader/> : null }
+          <div className={ isLoading ? 'hidden' : '' }>
+            { !inProgress && drop ? (
+              <div className="drop-item">
+                <img src={ this.getDropPreview(drop) }
+                onLoad={ () => this.checkImagesLoaded() } onError={ () => this.checkImagesLoaded() }/>
+              </div>
+            ) : null }
+          </div>
         </div>
       </div>
     );

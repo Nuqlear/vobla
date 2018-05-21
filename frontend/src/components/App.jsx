@@ -59,6 +59,12 @@ export default class App extends Component {
         return <WrappedLoader/>;
       }
     })
+    const GetApp = Loadable({
+      loader: () => import('./GetApp'),
+      loading: () => {
+        return <WrappedLoader/>;
+      }
+    })
     return (
       <div location={this.props.routing.location}>
         <Switch>
@@ -66,6 +72,7 @@ export default class App extends Component {
           <Route exact path='/login' component={ Login } />
           <Route exact path='/logout' component={ Logout } />
           <Route exact path='/' component={ Dashboard } />
+          <Route exact path='/getapp' component={ GetApp } />
           <Route exact path='/d/:dropHash' component={ Drop } />
           <Redirect to ='/' />
         </Switch>
