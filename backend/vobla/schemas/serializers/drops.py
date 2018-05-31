@@ -44,3 +44,8 @@ class DropSchema(BaseSchema):
 
     def _get_url(self, obj):
         return build_drop_url(obj.hash)
+
+
+class UserDropsSchema(BaseSchema):
+    drops = fields.Nested(DropSchema, many=True)
+    next_cursor = fields.Str(required=False)

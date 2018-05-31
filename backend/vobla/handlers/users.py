@@ -31,10 +31,11 @@ class SignupHandler(BaseHandler):
                 schema: ValidationErrorSchema
         '''
         async with self.pgc.begin() as tr:
-            res = await models.UserInvite.select(
-                self.pgc,
-                models.UserInvite.c.code == reqargs['invite_code']
+            cursor = await self.pgc.execute(
+                models.UserInvite.t.select().with_for_update()
+                .where(models.UserInvite.c.code == reqargs['invite_code'])
             )
+            res = await cursor.fetchone()
             if not res:
                 raise errors.validation.VoblaValidationError(
                     invite_code='Invite code is not valid'

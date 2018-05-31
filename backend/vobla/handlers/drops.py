@@ -2,14 +2,21 @@ import os
 import magic
 from datetime import datetime
 
-from sqlalchemy import and_, select
+from sqlalchemy import and_, select, desc, exists
 
 from vobla import errors, tasks
 from vobla.handlers import BaseHandler
 from vobla.utils import jwt_auth
 from vobla.utils import api_spec_exists
 from vobla.db import models
-from vobla.schemas.serializers.drops import DropFileFirstChunkUploadSchema
+from vobla.schemas.serializers.drops import (
+    DropFileFirstChunkUploadSchema,
+    UserDropsSchema
+)
+
+
+def utcnow2ms(utcnow: datetime):
+    return int((utcnow - datetime(1970, 1, 1)).total_seconds() * 1000)
 
 
 @api_spec_exists
@@ -27,31 +34,69 @@ class UserDropsHandler(BaseHandler):
               name: 'Authorization'
               type: string
               required: true
+            - in: query
+              name: cursor
+              required: false
         responses:
             200:
                 decsription: OK
-                schema: DropSchema
+                schema: UserDropsSchema
             401:
                 description: Invalid/Missing authorization header
                 schema: ValidationErrorSchema
         '''
-        drops = await models.Drop.select(
-            self.pgc,
-            models.Drop.c.owner_id == self.user.id,
-            return_list=True
-        )
-        drops = await models.Drop.fetch(
-            self.pgc, (drop.id for drop in drops)
-        )
-        data = dict(drops=models.Drop.serializer.dump(drops, many=True).data)
+        cursor = self.get_argument('cursor', None)
+        if not cursor:
+            created_at = datetime.utcnow()
+        else:
+            created_at = datetime.fromtimestamp(int(cursor)/1000.0)
+        async with self.pgc.begin():
+            query = (
+                models.Drop.t.select()
+                .where(and_(
+                    models.Drop.c.owner_id == self.user.id,
+                    models.Drop.c.created_at < created_at
+                ))
+                .limit(40)
+                .order_by(desc(models.Drop.c.created_at))
+            )
+            cursor = await self.pgc.execute(query)
+            res = await cursor.fetchall()
+            drops = []
+            for row in res:
+                drop = models.Drop._construct_from_row(row)
+                drop.owner = self.user
+                drop.dropfiles = await models.DropFile.select(
+                    self.pgc,
+                    and_(
+                        models.DropFile.c.drop_id == drop.id,
+                        models.DropFile.c.uploaded_at.isnot(None)
+                    ),
+                    return_list=True
+                )
+                drops.append(drop)
+        data_for_dump = dict(drops=drops)
+        if drops:
+            next_cursor = utcnow2ms(drops[-1].created_at)
+            cursor = await self.pgc.execute(
+                select([
+                    exists()
+                    .where(models.Drop.c.created_at < drops[-1].created_at)
+                ])
+            )
+            next_cursor_exists = await cursor.scalar()
+            if next_cursor_exists:
+                data_for_dump['next_cursor'] = next_cursor
+            else:
+                data_for_dump['next_cursor'] = -1
         self.set_status(200)
-        self.finish(data)
+        self.finish(UserDropsSchema().dump(data_for_dump).data)
 
     @jwt_auth.jwt_needed
     async def delete(self):
         '''
         ---
-        description: Delete about User's Drops
+        description: Delete User's Drops
         tags:
             - drops
         parameters:

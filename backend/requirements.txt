@@ -12,4 +12,4 @@ passlib==1.7.1
 hashids==1.2.0
 python-magic==0.4.15
 requests==2.18.4
-celery==4.1.0
+celery==4.1.1

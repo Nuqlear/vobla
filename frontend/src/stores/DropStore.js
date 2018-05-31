@@ -7,15 +7,21 @@ export default class DropStore {
   @observable drop = undefined;
   @observable inProgress = true;
   @observable previewIsLoading = true;
+  @observable cursor = undefined;
 
   @action async loadDrops() {
     try {
       this.previewIsLoading = true;
       this.inProgress = true;
+      let args = '';
+      if (this.cursor) {
+        args = `?cursor=${this.cursor}`
+      }
       const resp = await axios.get(
-        '/api/drops'
+        `/api/drops${args}`
       );
-      this.drops = resp.data.drops;
+      this.cursor = resp.data.next_cursor;
+      this.drops = this.drops.concat(resp.data.drops);
       this.inProgress = false;
       return true;
     }

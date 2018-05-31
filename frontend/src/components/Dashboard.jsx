@@ -19,8 +19,27 @@ class Dashboard extends Component {
     this.getDropPreview.bind(this);
   }
 
+  componentDidMount() {
+    window.addEventListener('scroll', this.onScroll, false);
+  }
+
   async componentWillMount() {
-    await this.dropStore.loadDrops();
+    if (this.dropStore.drops.length == 0) {
+      await this.dropStore.loadDrops();
+    }
+  }
+
+  componentWillUnmount() {
+    window.removeEventListener('scroll', this.onScroll, false);
+  }
+
+  onScroll = () => {
+    if (
+      (window.innerHeight + window.scrollY) >= (document.body.offsetHeight - 500) &&
+      !this.dropStore.inProgress && this.dropStore.cursor != -1
+    ) {
+      this.dropStore.loadDrops();
+    }
   }
 
   getDropPreview(drop) {
