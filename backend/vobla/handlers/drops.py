@@ -258,7 +258,6 @@ class DropPreviewHandler(BaseHandler):
 @api_spec_exists
 class DropFileHandler(BaseHandler):
 
-    @jwt_auth.jwt_needed
     async def get(self, drop_file_hash):
         '''
         ---
