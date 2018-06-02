@@ -86,7 +86,10 @@ class LoginTest(TestMixin):
     @gen_test
     async def test_incomplete_data(self):
         cases = [
-            {}, {'email': 'asdas'}, {'password': '228'}
+            {},
+            {'email': 'mail@mail.ru'},
+            {'password': '228'},
+            {'email': 'mail', 'password': 228}
         ]
         for case_data in cases:
             resp = await self._test_case(
@@ -97,7 +100,7 @@ class LoginTest(TestMixin):
     @gen_test
     async def test_valid_non_registered_data(self):
         data = {
-            'email': 'email',
+            'email': 'mail@mail.ru',
             'password': 'pass'
         }
         resp = await self._test_case(
@@ -108,7 +111,7 @@ class LoginTest(TestMixin):
     @gen_test
     async def test_valid_data(self):
         data = {
-            'email': 'email',
+            'email': 'mail@mail.ru',
             'password': 'pass'
         }
         async with self._app.pg.acquire() as conn:
@@ -139,7 +142,7 @@ class JWTCheckTest(TestMixin):
     @gen_test
     async def test_headers(self):
         data = {
-            'email': 'email',
+            'email': 'mail@mail.ru',
             'password': 'pass'
         }
         async with self._app.pg.acquire() as conn:

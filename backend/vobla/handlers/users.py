@@ -9,6 +9,15 @@ from vobla.utils import api_spec_exists
 from vobla.db import models
 
 
+def email_simple_validation(email):
+    return (
+        len(email) > 4 and
+        len(email) < 254 and
+        email.count('@') != 0 and
+        email.count('.') != 0
+    )
+
+
 @api_spec_exists
 class SignupHandler(BaseHandler):
 
@@ -39,6 +48,10 @@ class SignupHandler(BaseHandler):
             if not res:
                 raise errors.validation.VoblaValidationError(
                     invite_code='Invite code is not valid'
+                )
+            if not email_simple_validation(reqargs['email']):
+                raise errors.validation.VoblaValidationError(
+                    email='Email does not look valid'
                 )
             invite_code = reqargs.pop('invite_code')
             user = models.User(**reqargs)
