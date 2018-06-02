@@ -259,6 +259,38 @@ class DropPreviewHandler(BaseHandler):
 class DropFileHandler(BaseHandler):
 
     @jwt_auth.jwt_needed
+    async def get(self, drop_file_hash):
+        '''
+        ---
+        description: Delete User's DropFile
+        tags:
+            - drops
+        parameters:
+            - in: header
+              name: 'Authorization'
+              type: string
+              required: true
+            - in: path
+              name: drop_file_hash
+              type: string
+        responses:
+            200:
+                decsription: OK
+                schema: DropFileSchema
+            404:
+                decsription: DropFile not found
+        '''
+        dropfile = await models.DropFile.select(
+            self.pgc,
+            models.DropFile.c.id == models.hashids.decode(drop_file_hash)[0]
+        )
+        if dropfile is None:
+            self.set_status(404)
+        else:
+            self.set_status(200)
+            self.finish(dropfile.serializer.dump(dropfile).data)
+
+    @jwt_auth.jwt_needed
     async def delete(self, drop_file_hash):
         '''
         ---

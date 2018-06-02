@@ -1,13 +1,13 @@
 import React, { Component } from 'react';
 import ReactDOM from 'react-dom';
 import { inject, observer } from 'mobx-react';
-import Modal from 'react-bootstrap4-modal';
 import { Redirect } from 'react-router-dom';
+import Modal from 'react-bootstrap4-modal';
 
 
 @inject('store', 'routing')
 @observer
-class UploadModal extends Component {
+class DropFileUploadModal extends Component {
 
   constructor(props) {
     super(props);
@@ -27,7 +27,7 @@ class UploadModal extends Component {
   hide = () => {
     this.clearFileInput();
     this.fileInputTarget && (this.fileInputTarget.value = null);
-    this.modalStore.hideModal();
+    this.modalStore.hideModal('DropFileUpload');
   }
 
   handleFileChange = (e) => {
@@ -35,19 +35,21 @@ class UploadModal extends Component {
     this.setState({file: e.target.files[0]});
   }
 
-  uploadDrop = async () => {
-    const dropHash = await this.dropStore.uploadDrop(this.state.file);
+  uploadDropFile = async () => {
+    const dropFileHash = await this.dropStore.uploadDropFile(
+      this.props.dropHash, this.state.file
+    );
+    await this.dropStore.loadDropFile(dropFileHash);
     this.hide();
-    this.props.routing.push(`/d/${dropHash}`);
   }
 
   render() {
-    const { visible, hideModal } = this.modalStore;
+    const { visibility, hideModal } = this.modalStore;
     const { uploadProgress } = this.dropStore;
     return (
-      <Modal visible={ visible } onClickBackdrop={ this.hide }>
+      <Modal visible={ visibility['DropFileUpload'] } onClickBackdrop={ this.hide }>
       <div className="modal-header">
-        <h5 className="modal-title">Upload a Drop</h5>
+        <h5 className="modal-title">Upload a DropFile</h5>
       </div>
       <div className="modal-body">
           <input type="file" onChange={ this.handleFileChange } accept="image/*"/>
@@ -59,7 +61,7 @@ class UploadModal extends Component {
         </button>
         {
           this.state && this.state.file ?
-          <button type="button" className="btn btn-primary" onClick={ this.uploadDrop }>Upload</button> :
+          <button type="button" className="btn btn-primary" onClick={ this.uploadDropFile }>Upload</button> :
           null
         }
       </div>
@@ -68,4 +70,4 @@ class UploadModal extends Component {
   }
 };
 
-export default UploadModal;
+export default DropFileUploadModal;

@@ -4,9 +4,12 @@ import { inject, observer } from 'mobx-react';
 import { Route, Link, Redirect } from 'react-router-dom';
 import Moment from 'react-moment';
 import TiTrash from 'react-icons/lib/ti/trash';
+import TiUpload from 'react-icons/lib/ti/upload';
+import Carousel from 'nuka-carousel';
 
 import Loader from './Loader';
 import Header from './Header';
+import DropFileUploadModal from './modals/DropFileUpload';
 
 
 @inject('store', 'routing')
@@ -16,35 +19,11 @@ class Drop extends Component {
     super(props);
     this.store = this.props.store;
     this.dropStore = this.store.dropStore;
-    this.getDropPreview.bind(this);
+    this.modalStore = this.store.modalStore;
   }
 
   async componentWillMount() {
     await this.dropStore.loadDrop(this.props.match.params.dropHash);
-  }
-
-  generatePreview(file) {
-    let previewDiv;
-    if (file.mimetype == 'application/octet-stream') {
-      <div className="image-container">
-        <img className="img-thumbnail" src="" width="100%" alt=""/>
-      </div>
-    }
-    else if (file.mimetype.split('/')[0] == 'image') {
-      previewDiv = (
-        <div className="image-container">
-          <img className="img-thumbnail" src={ getDropFile(file) } width="100%" alt=""
-          onLoad={ this.checkImagesLoaded.bind(this) }
-          onError={ this.checkImagesLoaded.bind(this) }
-          />
-        </div>
-      );
-    }
-    return previewDiv;
-  }
-
-  getDropPreview(drop) {
-    return drop.dropfiles[0].url;
   }
 
   checkImagesLoaded = () => {
@@ -63,31 +42,51 @@ class Drop extends Component {
     this.props.routing.push('/');
    }
 
+  showModal = () => {
+   this.modalStore.showModal('DropFileUpload');
+  }
+
   render() {
     const { inProgress, previewIsLoading, drop, deleteDrop } = this.dropStore;
     const isLoading = inProgress || previewIsLoading;
     const menu = [{
+        onClick: () => { this.modalStore.showModal('DropFileUpload') },
+        jsx: (
+          <span>
+            <TiUpload size={25}/><span className="d-none d-md-inline">&nbsp;&nbsp;Upload DropFile</span>
+          </span>
+        )
+      }, {
         onClick: this.deleteDrop,
         jsx: (
           <span>
-            <TiTrash size={25}/><span className="d-none d-md-inline">&nbsp;&nbsp;Delete this Drop</span>
+            <TiTrash size={25}/><span className="d-none d-md-inline">&nbsp;&nbsp;Delete Drop</span>
           </span>
         )
-      }
-    ];
+    }];
+    const self = this;
     return (
       <div>
+        <DropFileUploadModal dropHash={ this.props.match.params.dropHash }/>
         <Header navbarLeft={ menu }/>
+
         <div className='contaner'>
           { isLoading ? <Loader/> : null }
+
           <div className={ isLoading ? 'hidden' : '' }>
-            { !inProgress && drop ? (
-              <div className="drop-item">
-                <img src={ this.getDropPreview(drop) }
-                onLoad={ () => this.checkImagesLoaded() } onError={ () => this.checkImagesLoaded() }/>
-              </div>
+            <div className="drop-item">
+            { !inProgress && drop ? drop.dropfiles.map(function(dropfile, index) {
+                return (
+                    <img src={ dropfile.url } key={ dropfile.hash }
+                      onLoad={ self.checkImagesLoaded.bind(self) }
+                      onError={ self.checkImagesLoaded.bind(self) }
+                    />
+                )
+              }
             ) : null }
+            </div>
           </div>
+
         </div>
       </div>
     );

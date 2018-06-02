@@ -20,20 +20,21 @@ class DropFileFirstChunkUploadSchema(BaseSchema):
         return build_dropfile_url(obj['drop_file_hash'])
 
 
+class DropFileSchema(BaseSchema):
+    name = fields.Str(required=True)
+    hash = fields.Str(required=True)
+    mimetype = fields.Str(required=True)
+    uploaded_at = fields.DateTime(required=True)
+    url = fields.Method('_get_url')
+
+    def _get_url(self, obj):
+        return build_dropfile_url(obj.hash)
+
+
 class DropSchema(BaseSchema):
 
     class OwnerSchema(BaseSchema):
         email = fields.Str(required=True)
-
-    class DropFileSchema(BaseSchema):
-        name = fields.Str(required=True)
-        hash = fields.Str(required=True)
-        mimetype = fields.Str(required=True)
-        uploaded_at = fields.DateTime(required=True)
-        url = fields.Method('_get_url')
-
-        def _get_url(self, obj):
-            return build_dropfile_url(obj.hash)
 
     name = fields.Str(required=True)
     hash = fields.Str(required=True)

@@ -259,6 +259,26 @@ class DropFileHandler(DropsTestMixin):
             )
             assert dropfile is None
 
+    @gen_test
+    async def test_GET_valid(self):
+        async with self._app.pg.acquire() as conn:
+            _, _, dropfile = await _create_dropfile(conn)
+            resp = await self.fetch(
+                f'/api/drops/files/{dropfile.hash}',
+                method='GET'
+            )
+            assert resp.code == 200
+
+    @gen_test
+    async def test_GET_404(self):
+        async with self._app.pg.acquire() as conn:
+            _, _, dropfile = await _create_dropfile(conn)
+            resp = await self.fetch(
+                f'/api/drops/files/{models.hashids.encode(1231, 1)}',
+                method='GET'
+            )
+            assert resp.code == 404
+
 
 class DropUploadHandlerTest(DropsTestMixin):
 

@@ -3,13 +3,16 @@ import axios from 'axios';
 
 
 export default class ModalStore {
-  @observable visible = false;
+  @observable visibility = {
+    'DropUpload': false,
+    'DropFileUpload': false
+  };
 
-  @action showModal() {
-    this.visible = true;
+  @action showModal(modalName) {
+    this.visibility[modalName] = true;
   }
 
-  @action hideModal() {
-    this.visible = false;
+  @action hideModal(modalName) {
+    this.visibility[modalName] = false;
   }
 }

@@ -8,7 +8,7 @@ import TiUpload from 'react-icons/lib/ti/upload';
 import Protected from './Protected';
 import Header from './Header';
 import Loader from './Loader';
-import UploadModal from './UploadModal';
+import DropUploadModal from './modals/DropUpload';
 
 
 @inject('store')
@@ -73,16 +73,16 @@ class Dashboard extends Component {
       jsx: 'Delete all Drops'
     }];
     const navbarLeft = [{
-      onClick: () => { this.modalStore.showModal() },
+      onClick: () => { this.modalStore.showModal('DropUpload') },
       jsx: (
         <span>
-          <TiUpload size={25}/><span className="d-none d-md-inline">&nbsp;&nbsp;Upload a Drop</span>
+          <TiUpload size={25}/><span className="d-none d-md-inline">&nbsp;&nbsp;Upload Drop</span>
         </span>
       )
     }]
     return (
       <div>
-        <UploadModal/>
+        <DropUploadModal/>
         <Header navbarLeft={ navbarLeft } navbarRight={ navbarRight } key='header'/>
         <div className='contaner'>
           { isLoading ? <Loader/> : null }

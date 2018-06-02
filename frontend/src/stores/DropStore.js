@@ -10,6 +10,58 @@ export default class DropStore {
   @observable cursor = undefined;
   @observable uploadProgress = undefined;
 
+  @action async loadDropFile(dropFileHash) {
+    this.inProgress = true;
+    this.previewIsLoading = true;
+    const resp = await axios.get(
+      `/api/drops/files/${dropFileHash}`
+    )
+    this.drop.dropfiles.push(resp.data);
+    this.inProgress = false;
+  }
+
+  @action async uploadDropFile(dropHash, file) {
+    this.uploadProgress = 0;
+    let chunkNumber = 0;
+    let fileTotalSize = file.size;
+    let chunkSize = 101024;
+    let headers = {
+      'content-type': 'multipart/form-data',
+      'File-Total-Size': fileTotalSize,
+      'Chunk-Size': chunkSize,
+      'Drop-Hash': dropHash
+    }
+    while (true) {
+      const chunk = file.slice(
+        chunkSize * chunkNumber,
+        Math.min(chunkSize * (chunkNumber + 1), fileTotalSize + 1)
+      );
+      let data = new FormData();
+      data.append('chunk', chunk);
+      this.uploadProgress = (
+        ((chunkSize * (chunkNumber - 1) + chunk.size) / fileTotalSize) * 100
+      );
+      chunkNumber = chunkNumber + 1;
+      headers['Chunk-Number'] = chunkNumber;
+      const resp = await axios.post(
+        '/api/drops/upload',
+        data, {
+          headers: headers
+        }
+      )
+      if (resp.data) {
+        if (resp.data.drop_file_hash) {
+          headers['Drop-File-Hash'] = resp.data.drop_file_hash;
+        }
+      }
+      if (resp.status === 201) {
+        this.uploadProgress = undefined;
+        break;
+      }
+    }
+    return headers['Drop-File-Hash'];
+  }
+
   @action async uploadDrop(file) {
     this.uploadProgress = 0;
     let chunkNumber = 0;

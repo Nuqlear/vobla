@@ -101,6 +101,7 @@ class DropFile(Model):
         sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
         sa.Column('uploaded_at', sa.DateTime, nullable=True)
     ]
+    serializer = serializers.drops.DropFileSchema()
 
     @classmethod
     async def create(cls, pgc, drop, name=None):
