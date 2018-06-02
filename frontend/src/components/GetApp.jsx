@@ -35,8 +35,6 @@ const GetApp = () => {
                       <span className='text'>Linux / Ubuntu installer</span>
                     </a>
                   </div>
-                  <h5> Currently <u>Vobla</u> is availiable only for Windows. </h5>
-                  <h5> Support for another systems is coming later. </h5>
                 </div>
               </div>
             </div>

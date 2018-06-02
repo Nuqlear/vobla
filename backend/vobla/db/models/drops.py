@@ -47,6 +47,24 @@ class Drop(Model):
         return self.serializer.dump(self, many=False).data
 
     @classmethod
+    async def fetch(cls, pgc, filter_):
+        async with pgc.begin():
+            drops = await cls.select(
+                pgc, filter_, return_list=True
+            )
+            for drop in drops:
+                drop.owner = await User.select(pgc, User.c.id == drop.owner_id)
+                drop.dropfiles = await DropFile.select(
+                    pgc,
+                    and_(
+                        DropFile.c.drop_id == drop.id,
+                        DropFile.c.uploaded_at.isnot(None),
+                    ),
+                    return_list=True
+                )
+        return drops
+
+    @classmethod
     async def create(cls, pgc, owner, name=None):
         async with pgc.begin():
             obj = cls(name=name, owner_id=owner.id)

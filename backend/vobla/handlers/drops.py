@@ -1,7 +1,8 @@
 import os
-import magic
+import itertools
 from datetime import datetime
 
+import magic
 from sqlalchemy import and_, select, desc, exists
 
 from vobla import errors, tasks
@@ -17,6 +18,12 @@ from vobla.schemas.serializers.drops import (
 
 def utcnow2ms(utcnow: datetime):
     return int((utcnow - datetime(1970, 1, 1)).total_seconds() * 1000)
+
+
+def get_dropfiles_paths(dropfiles):
+    for dropfile in dropfiles:
+        yield dropfile.file_path
+        yield dropfile.temp_folder_path
 
 
 @api_spec_exists
@@ -111,18 +118,23 @@ class UserDropsHandler(BaseHandler):
                 description: Invalid/Missing authorization header
                 schema: ValidationErrorSchema
         '''
-        await models.Drop.delete(
+        drops = await models.Drop.fetch(
             self.pgc,
             models.Drop.c.owner_id == self.user.id
         )
+        if drops:
+            await models.Drop.delete(
+                self.pgc,
+                models.Drop.c.owner_id == self.user.id
+            )
+            tasks.rmtree.delay(
+                *itertools.chain(*[
+                    get_dropfiles_paths(drop.dropfiles)
+                    for drop in drops
+                ])
+            )
         self.set_status(200)
         self.finish()
-
-
-def get_drop_paths(drop):
-    for dropfile in drop.dropfiles:
-        yield dropfile.file_path
-        yield dropfile.temp_folder_path
 
 
 @api_spec_exists
@@ -185,7 +197,7 @@ class DropHandler(BaseHandler):
         '''
         drops = await models.Drop.fetch(
             self.pgc,
-            [models.hashids.decode(drop_hash)[0]]
+            models.Drop.c.id == models.hashids.decode(drop_hash)[0]
         )
         if drops:
             drop = drops[0]
@@ -197,7 +209,7 @@ class DropHandler(BaseHandler):
                     models.Drop.c.id == models.hashids.decode(drop_hash)[0]
                 )
                 self.set_status(200)
-                tasks.rmtree.delay(*(get_drop_paths(drop)))
+                tasks.rmtree.delay(*get_dropfiles_paths(drop.dropfiles))
         else:
             self.set_status(404)
         self.finish()
@@ -233,17 +245,20 @@ class DropFileHandler(BaseHandler):
                 models.Drop.c.owner_id == self.user.id
             ).cte('user_drops')
         )
-        query = (
-            models.DropFile.t.delete().where(
-                and_(
-                    models.DropFile.c.id == models.hashids.decode(drop_file_hash)[0],
-                    models.DropFile.c.drop_id.in_(
-                        select([user_drops_cte.c.id])
-                    )
+        dropfile = await models.DropFile.select(
+            self.pgc,
+            and_(
+                models.DropFile.c.id == models.hashids.decode(drop_file_hash)[0],
+                models.DropFile.c.drop_id.in_(
+                    select([user_drops_cte.c.id])
                 )
             )
         )
-        await self.pgc.execute(query)
+        await self.pgc.execute(
+            models.DropFile.t.delete()
+            .where(models.DropFile.c.id == dropfile.id)
+        )
+        tasks.rmtree.delay(*get_dropfiles_paths([dropfile]))
         self.set_status(200)
         self.finish()
 
@@ -440,6 +455,7 @@ class DropUploadHandler(BaseHandler):
                     )
                 drop_file.uploaded_at = datetime.utcnow()
                 await drop_file.update(self.pgc)
+                # tasks.generate_previews.delay()
                 self.set_status(201)
             else:
                 self.set_status(200)
