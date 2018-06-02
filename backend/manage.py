@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import argparse
+import sys
 
 import alembic.config
 from celery.bin import worker
@@ -36,7 +37,7 @@ def run_migrations():
 
 
 def run_tests():
-    pytest.main(['-vv', TESTS_FOLDER])
+    sys.exit(pytest.main(['-vv', TESTS_FOLDER]))
 
 
 def create_invite():

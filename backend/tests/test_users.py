@@ -24,7 +24,7 @@ class SignupTest(TestMixin):
             ui = await models.UserInvite.create(conn)
         cases = [
             {},
-            {'email': 'asdas'},
+            {'email': 'mail@mail.ru'},
             {'password': '228'},
             {'invite_code': ui.code},
             {'email': 'em', 'password': '228'}
@@ -40,7 +40,7 @@ class SignupTest(TestMixin):
         async with self.pg.acquire() as conn:
             ui = await models.UserInvite.create(conn)
             data = {
-                'email': 'email',
+                'email': 'mail@mail.ru',
                 'password': 'pass',
                 'invite_code': ui.code
             }
@@ -57,7 +57,7 @@ class SignupTest(TestMixin):
     @gen_test
     async def test_already_registered(self):
         data = {
-            'email': 'email',
+            'email': 'mail@mail.ru',
             'password_hash': 'pass',
         }
         async with self._app.pg.acquire() as conn:
