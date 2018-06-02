@@ -11,6 +11,10 @@ api_url_patterns = [
     [r"/drops$", drops.UserDropsHandler],
     [r"/drops/(?P<drop_hash>[a-zA-Z0-9]{16})$", drops.DropHandler],
     [
+        r"/drops/(?P<drop_hash>[a-zA-Z0-9]{16})/preview$",
+        drops.DropPreviewHandler
+    ],
+    [
         r"/drops/files/(?P<drop_file_hash>[a-zA-Z0-9]{16})$",
         drops.DropFileHandler
     ],
@@ -26,6 +30,10 @@ url_patterns = api_url_patterns + [
     [
         r"/f/(?P<drop_file_hash>[a-zA-Z0-9]{16})$",
         type('ShortDropFileContentHandler', (drops.DropFileContentHandler,), {})
+    ],
+    [
+        r"/d/(?P<drop_hash>[a-zA-Z0-9]{16})/preview$",
+        type('ShortDropPreviewHandler', (drops.DropPreviewHandler,), {})
     ],
 ]
 

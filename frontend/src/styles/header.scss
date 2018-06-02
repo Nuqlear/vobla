@@ -12,7 +12,11 @@ $navigation-offset: 10px;
       padding-right: $navigation-offset;
 
       .nav-item:not(:last-child)  {
-        padding-right: 20px;
+        padding-right: 10px;
+
+        @media only screen and (min-width: 768px) {
+          padding-right: 40px;
+        }
       }
 
       .nav-item:hover {

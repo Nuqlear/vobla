@@ -57,31 +57,31 @@ class UserDropsHandler(BaseHandler):
             created_at = datetime.utcnow()
         else:
             created_at = datetime.fromtimestamp(int(cursor)/1000.0)
-        async with self.pgc.begin():
-            query = (
-                models.Drop.t.select()
-                .where(and_(
-                    models.Drop.c.owner_id == self.user.id,
-                    models.Drop.c.created_at < created_at
-                ))
-                .limit(40)
-                .order_by(desc(models.Drop.c.created_at))
+        query = (
+            models.Drop.t.select()
+            .where(and_(
+                models.Drop.c.owner_id == self.user.id,
+                models.Drop.c.created_at < created_at,
+                models.Drop.c.is_preview_ready.is_(True)
+            ))
+            .limit(80)
+            .order_by(desc(models.Drop.c.created_at))
+        )
+        cursor = await self.pgc.execute(query)
+        res = await cursor.fetchall()
+        drops = []
+        for row in res:
+            drop = models.Drop._construct_from_row(row)
+            drop.owner = self.user
+            drop.dropfiles = await models.DropFile.select(
+                self.pgc,
+                and_(
+                    models.DropFile.c.drop_id == drop.id,
+                    models.DropFile.c.uploaded_at.isnot(None)
+                ),
+                return_list=True
             )
-            cursor = await self.pgc.execute(query)
-            res = await cursor.fetchall()
-            drops = []
-            for row in res:
-                drop = models.Drop._construct_from_row(row)
-                drop.owner = self.user
-                drop.dropfiles = await models.DropFile.select(
-                    self.pgc,
-                    and_(
-                        models.DropFile.c.drop_id == drop.id,
-                        models.DropFile.c.uploaded_at.isnot(None)
-                    ),
-                    return_list=True
-                )
-                drops.append(drop)
+            drops.append(drop)
         data_for_dump = dict(drops=drops)
         if drops:
             next_cursor = utcnow2ms(drops[-1].created_at)
@@ -216,6 +216,47 @@ class DropHandler(BaseHandler):
 
 
 @api_spec_exists
+class DropPreviewHandler(BaseHandler):
+
+    async def get(self, drop_hash):
+        '''
+        ---
+        description: Get Drop preview
+        tags:
+            - drops
+        parameters:
+            - in: path
+              name: drop_hash
+              type: string
+        responses:
+            200:
+                decsription: OK
+            404:
+                description: Drop with such hash or its preview is not found
+                schema: VoblaHTTPErrorSchema
+        '''
+        drop = await models.Drop.select(
+            self.pgc,
+            and_(
+                models.Drop.c.id == models.hashids.decode(drop_hash)[0],
+                models.Drop.c.is_preview_ready.is_(True)
+            )
+        )
+        if drop is None:
+            raise errors.http.VoblaHTTPError(
+                404, 'Drop with such hash is not found.'
+            )
+        with open(drop.preview_path, 'rb') as f:
+            preview_buffer = f.read()
+            self.write(preview_buffer)
+            self.set_header('Content-Type', magic.from_buffer(
+                preview_buffer, mime=True
+            ))
+        self.set_status(200)
+        self.finish()
+
+
+@api_spec_exists
 class DropFileHandler(BaseHandler):
 
     @jwt_auth.jwt_needed
@@ -240,25 +281,32 @@ class DropFileHandler(BaseHandler):
                 description: Invalid/Missing authorization header
                 schema: ValidationErrorSchema
         '''
-        user_drops_cte = (
-            select([models.Drop.c.id]).where(
-                models.Drop.c.owner_id == self.user.id
-            ).cte('user_drops')
-        )
-        dropfile = await models.DropFile.select(
-            self.pgc,
-            and_(
-                models.DropFile.c.id == models.hashids.decode(drop_file_hash)[0],
-                models.DropFile.c.drop_id.in_(
-                    select([user_drops_cte.c.id])
+        async with self.pgc.begin():
+            user_drops_cte = (
+                select([models.Drop.c.id]).where(
+                    models.Drop.c.owner_id == self.user.id
+                ).cte('user_drops')
+            )
+            dropfile = await models.DropFile.select(
+                self.pgc,
+                and_(
+                    models.DropFile.c.id == models.hashids.decode(drop_file_hash)[0],
+                    models.DropFile.c.drop_id.in_(
+                        select([user_drops_cte.c.id])
+                    )
                 )
             )
-        )
-        await self.pgc.execute(
-            models.DropFile.t.delete()
-            .where(models.DropFile.c.id == dropfile.id)
-        )
-        tasks.rmtree.delay(*get_dropfiles_paths([dropfile]))
+            await self.pgc.execute(
+                models.DropFile.t.delete()
+                .where(models.DropFile.c.id == dropfile.id)
+            )
+            await self.pgc.execute(
+                models.Drop.t.update()
+                .values(is_preview_ready=False)
+                .where(models.Drop.c.id == dropfile.drop_id)
+            )
+            tasks.rmtree.delay(*get_dropfiles_paths([dropfile]))
+        tasks.generate_previews.delay(dropfile.drop_id)
         self.set_status(200)
         self.finish()
 
@@ -401,6 +449,8 @@ class DropUploadHandler(BaseHandler):
                 drop = await models.Drop.select(
                     self.pgc, models.Drop.c.id == drop_file.drop_id
                 )
+                drop.is_preview_ready = False
+                await drop.update(self.pgc)
                 if drop.owner_id != self.user.id:
                     raise errors.validation.VoblaValidationError(
                         403, **{
@@ -455,7 +505,6 @@ class DropUploadHandler(BaseHandler):
                     )
                 drop_file.uploaded_at = datetime.utcnow()
                 await drop_file.update(self.pgc)
-                # tasks.generate_previews.delay()
                 self.set_status(201)
             else:
                 self.set_status(200)
@@ -467,6 +516,8 @@ class DropUploadHandler(BaseHandler):
                         'drop_hash': drop.hash
                     }).data
                 )
+        if progress >= 1:
+            tasks.generate_previews.delay(drop.id)
         self.finish()
 
 
@@ -491,20 +542,19 @@ class DropFileContentHandler(BaseHandler):
                 description: DropFile with such hash is not found
                 schema: VoblaHTTPErrorSchema
         '''
-        async with self.pgc.begin():
-            dropfile = await models.DropFile.select(
-                self.pgc,
-                and_(
-                    models.DropFile.c.id == models.hashids.decode(drop_file_hash)[0],
-                    models.DropFile.c.uploaded_at.isnot(None)
-                )
+        dropfile = await models.DropFile.select(
+            self.pgc,
+            and_(
+                models.DropFile.c.id == models.hashids.decode(drop_file_hash)[0],
+                models.DropFile.c.uploaded_at.isnot(None)
             )
-            if not dropfile:
-                raise errors.http.VoblaHTTPError(
-                    404, 'DropFile with such hash is not found.'
-                )
-            self.set_header('Content-Type', dropfile.mimetype)
-            with open(dropfile.file_path, 'rb') as f:
-                self.write(f.read())
-            self.set_status(200)
-            self.finish()
+        )
+        if not dropfile:
+            raise errors.http.VoblaHTTPError(
+                404, 'DropFile with such hash is not found.'
+            )
+        self.set_header('Content-Type', dropfile.mimetype)
+        with open(dropfile.file_path, 'rb') as f:
+            self.write(f.read())
+        self.set_status(200)
+        self.finish()

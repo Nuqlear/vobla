@@ -3,10 +3,12 @@ import ReactDOM from 'react-dom';
 import { inject, observer } from 'mobx-react';
 import { Route, Link, Redirect } from 'react-router-dom';
 import Moment from 'react-moment';
+import TiUpload from 'react-icons/lib/ti/upload';
 
 import Protected from './Protected';
 import Header from './Header';
 import Loader from './Loader';
+import UploadModal from './UploadModal';
 
 
 @inject('store')
@@ -16,6 +18,7 @@ class Dashboard extends Component {
     super(props);
     this.store = this.props.store;
     this.dropStore = this.store.dropStore;
+    this.modalStore = this.store.modalStore;
     this.getDropPreview.bind(this);
   }
 
@@ -43,7 +46,7 @@ class Dashboard extends Component {
   }
 
   getDropPreview(drop) {
-    return drop.dropfiles[0].url;
+    return drop.preview_url;
   }
 
   checkImagesLoaded = () => {
@@ -65,14 +68,22 @@ class Dashboard extends Component {
     const { inProgress, previewIsLoading, drops } = this.dropStore;
     const isLoading = inProgress || (previewIsLoading && drops.length != 0);
     const self = this;
-    const menu = [{
-        onClick: this.deleteAllDrops,
-        jsx: 'Delete all'
-      }
-    ];
+    const navbarRight = [{
+      onClick: this.deleteAllDrops,
+      jsx: 'Delete all Drops'
+    }];
+    const navbarLeft = [{
+      onClick: () => { this.modalStore.showModal() },
+      jsx: (
+        <span>
+          <TiUpload size={25}/><span className="d-none d-md-inline">&nbsp;&nbsp;Upload a Drop</span>
+        </span>
+      )
+    }]
     return (
       <div>
-        <Header navbarRight={ menu } key='header'/>
+        <UploadModal/>
+        <Header navbarLeft={ navbarLeft } navbarRight={ navbarRight } key='header'/>
         <div className='contaner'>
           { isLoading ? <Loader/> : null }
           <div className={

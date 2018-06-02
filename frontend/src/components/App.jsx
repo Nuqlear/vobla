@@ -4,7 +4,6 @@ import {
   Route, Link, Redirect, DefaultRoute, Switch, withRouter
 } from 'react-router-dom';
 import { inject, observer } from 'mobx-react';
-import DevTools from 'mobx-react-devtools';
 
 import Logout from './Logout'
 import Loader from './Loader'
@@ -17,7 +16,6 @@ const WrappedLoader = () => {
     </div>
   );
 }
-
 
 
 @inject('store', 'routing')

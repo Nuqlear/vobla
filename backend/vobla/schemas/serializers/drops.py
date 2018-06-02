@@ -41,6 +41,10 @@ class DropSchema(BaseSchema):
     owner = fields.Nested(OwnerSchema, required=True)
     dropfiles = fields.Nested(DropFileSchema, many=True)
     url = fields.Method('_get_url')
+    preview_url = fields.Method('_get_preview_url')
+
+    def _get_preview_url(self, obj):
+        return f'{build_drop_url(obj.hash)}/preview'
 
     def _get_url(self, obj):
         return build_drop_url(obj.hash)

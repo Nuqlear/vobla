@@ -59,7 +59,7 @@ class Drop extends Component {
    }
 
   deleteDrop = async () => {
-    await this.dropStore.deleteDrop(this.props.match.params.dropHash);
+    await this.dropStore.deleteDrop();
     this.props.routing.push('/');
    }
 
@@ -68,7 +68,11 @@ class Drop extends Component {
     const isLoading = inProgress || previewIsLoading;
     const menu = [{
         onClick: this.deleteDrop,
-        jsx: <TiTrash size={25}/>
+        jsx: (
+          <span>
+            <TiTrash size={25}/><span className="d-none d-md-inline">&nbsp;&nbsp;Delete this Drop</span>
+          </span>
+        )
       }
     ];
     return (

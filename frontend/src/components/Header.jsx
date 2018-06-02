@@ -8,7 +8,7 @@ import { Link, withRouter } from 'react-router-dom';
 export default class Header extends Component {
   constructor(props) {
     super(props);
-    this.store = this.props.store.authStore;
+    this.authStore = this.props.store.authStore;
     this.navbarLeft = this.props.navbarLeft || [];
     this.navbarRight = this.props.navbarRight || [];
   }
@@ -52,7 +52,7 @@ export default class Header extends Component {
   }
 
   render() {
-    const { authenticated, logOut, user } = this.store;
+    const { authenticated, logOut, user } = this.authStore;
     const self = this;
     let navbarRight;
     if (authenticated) {
@@ -94,11 +94,12 @@ export default class Header extends Component {
             { navbarRight }
           </nav>
           <ul className={ this.state && this.state.dropdownShown ? 'dropdown-menu active' : 'dropdown-menu'}
-          onMouseDown={ this.handleMouseDownOnDropDown } onMouseUp={ this.handleMouseUpOnDropDown }>
+          onMouseDown={ this.handleMouseDownOnDropDown } onMouseUp={ self.handleMouseUpOnDropDown }>
             <Link to='/getapp' className='dropdown-item'>Get app</Link>
             { this.navbarRight.map(function(el, index) {
               return (
-                <li className='dropdown-item' onClick={ el.onClick } key={ index }>
+                <li className='dropdown-item'
+                onClick={ (e) => { self.hideDropdown() || el.onClick(e) } } key={ index }>
                   { el.jsx }
                 </li>
               );

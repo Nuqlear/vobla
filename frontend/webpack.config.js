@@ -25,6 +25,9 @@ module.exports = {
       },
       '/f/': {
         target: 'http://backend:5000'
+      },
+      '/d/*/preview': {
+        target: 'http://backend:5000'
       }
     }
   },

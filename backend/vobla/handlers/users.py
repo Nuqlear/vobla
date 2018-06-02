@@ -54,10 +54,10 @@ class SignupHandler(BaseHandler):
                 }
                 self.set_status(201)
             except psycopg2.IntegrityError:
+                tr.rollback()
                 raise errors.validation.VoblaValidationError(
                     email='Email already registered'
                 )
-                tr.rollback()
             self.write(response)
 
 

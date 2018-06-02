@@ -4,6 +4,7 @@ import { Redirect } from 'react-router-dom';
 
 import Header from './Header'
 
+
 export default function Protected(Component) {
 
   @inject('store')

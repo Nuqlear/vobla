@@ -65,14 +65,20 @@ export default class DropStore {
     this.inProgress = false;
   }
 
-  @action async deleteDrop(dropHash) {
+  @action async deleteDrop() {
     this.previewIsLoading = true;
     this.inProgress = true;
-    this.drop = undefined;
     try {
       const resp = await axios.delete(
-        `/api/drops/${dropHash}`
+        `/api/drops/${this.drop.hash}`
       );
+      const index = this.drops.findIndex((element) => {
+        return element.hash === this.drop.hash;
+      });
+      if (index > -1) {
+        this.drops.splice(index, 1);
+      }
+      this.drop = undefined;
     }
     catch(e) {
       console.log(e);

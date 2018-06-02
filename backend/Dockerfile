@@ -1,5 +1,6 @@
 FROM python:3.6
 RUN apt-get update && apt-get install -f -y postgresql-client
+RUN apt-get install -y imagemagick
 COPY vobla/ /vobla/
 COPY tests/ /tests/
 COPY alembic/ /alembic/

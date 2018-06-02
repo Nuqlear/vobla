@@ -11,7 +11,7 @@ import tornado.web
 
 from vobla.settings import config
 from vobla.app import TornadoApplication
-from vobla.tasks import celery_app, BaseTask
+from vobla.tasks import celery_app
 from vobla.db.engine import create_engine
 from vobla.db.models import UserInvite
 
@@ -53,7 +53,6 @@ def create_invite():
 
 
 def run_worker():
-    BaseTask.create_engine()
     worker.worker(app=celery_app).run(**config['celery'])
 
 

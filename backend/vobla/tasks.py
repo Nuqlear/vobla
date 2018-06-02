@@ -1,11 +1,13 @@
 import os
 import shutil
+import subprocess
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, and_
 from celery import Celery
 from celery.task import Task
-# from celery.signals import worker_init
+from celery.signals import worker_init
 
+from vobla.db import models
 from vobla.db.engine import get_engine_params
 from vobla.settings import config
 
@@ -29,10 +31,9 @@ class BaseTask(Task):
         )
 
 
-#
-# @worker_init.connect
-# def configure_workers(*args, **kwargs):
-#     BaseTask.engine = create_engine(**get_engine_params())
+@worker_init.connect
+def configure_workers(*args, **kwargs):
+    BaseTask.create_engine()
 
 
 @celery_app.task(base=BaseTask)
@@ -43,9 +44,44 @@ def rmtree(*paths):
         else:
             shutil.rmtree(path)
 
-#
-# @celery_app.task(base=BaseTask, bind=True)
-# def generate_previews(
-#     self, drop_id
-# ):
-#     pass
+
+@celery_app.task(base=BaseTask, bind=True)
+def generate_previews(self, drop_id: int):
+    with self.engine.begin() as conn:
+        rows = conn.execute(
+            models.DropFile.t.select()
+            .where(and_(
+                models.DropFile.c.drop_id == drop_id,
+                models.DropFile.c.uploaded_at.isnot(None),
+                models.DropFile.c.mimetype.ilike('image/%')
+            ))
+        ).fetchall()
+        if rows:
+            images = (
+                models.DropFile._construct_from_row(row).file_path
+                for row in rows
+            )
+            destination = models.Drop._construct_from_row(
+                conn.execute(
+                    models.Drop.t.select()
+                    .where(models.Drop.c.id == drop_id)
+                ).fetchone()
+            ).preview_path
+            if len(rows) == 1:
+                cmd = [
+                    'convert', next(images), '-thumbnail', '150x100^',
+                    '-gravity', 'center', '-extent', '150x100', destination
+                ]
+            else:
+                cmd = [
+                    'montage', *images, '-geometry', '150x100^', destination
+                ]
+            try:
+                subprocess.check_call(cmd, stderr=subprocess.STDOUT)
+            except subprocess.CalledProcessError as e:
+                raise
+            conn.execute(
+                models.Drop.t.update()
+                .values(is_preview_ready=True)
+                .where(models.Drop.c.id == drop_id)
+            )

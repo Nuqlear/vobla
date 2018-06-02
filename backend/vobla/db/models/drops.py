@@ -1,6 +1,5 @@
 import datetime
 import os
-from collections import Iterable
 
 import sqlalchemy as sa
 from sqlalchemy import and_
@@ -26,9 +25,20 @@ class Drop(Model):
             sa.ForeignKey('user.id', onupdate="CASCADE", ondelete="CASCADE")
         ),
         sa.Column('hash', sa.String(16)),
-        sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow)
+        sa.Column('created_at', sa.DateTime, default=datetime.datetime.utcnow),
+        sa.Column('is_preview_ready', sa.Boolean, default=False)
     ]
     serializer = serializers.drops.DropSchema()
+
+    @property
+    def preview_path(self):
+        year = self.created_at.strftime('%y')
+        month = self.created_at.strftime('%m')
+        day = self.created_at.strftime('%d')
+        return os.path.join(
+            config['vobla']['upload_folder'],
+            year, month, day, self.hash
+        )
 
     async def serialize(self, pgc, *args, owner=None, dropfiles=None):
         if owner is None:
