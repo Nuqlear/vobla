@@ -1,0 +1,19 @@
+.progress {
+  background-color: $secondary-color;
+  font-weight: bold;
+  position: relative;
+
+  &-value {
+    position: absolute;
+    top: .0625rem;
+    right: .25rem;
+  }
+
+  &, &-bar {
+    min-height: 1.25rem;
+  }
+
+  &-bar {
+    background-color: $primary-color;
+  }
+}

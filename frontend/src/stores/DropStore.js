@@ -9,6 +9,7 @@ export default class DropStore {
   @observable previewIsLoading = true;
   @observable cursor = undefined;
   @observable uploadProgress = undefined;
+  chunkSize = 1048576;
 
   @action async loadDropFile(dropFileHash) {
     this.inProgress = true;
@@ -24,22 +25,21 @@ export default class DropStore {
     this.uploadProgress = 0;
     let chunkNumber = 0;
     let fileTotalSize = file.size;
-    let chunkSize = 101024;
     let headers = {
       'content-type': 'multipart/form-data',
       'File-Total-Size': fileTotalSize,
-      'Chunk-Size': chunkSize,
+      'Chunk-Size': this.chunkSize,
       'Drop-Hash': dropHash
     }
     while (true) {
       const chunk = file.slice(
-        chunkSize * chunkNumber,
-        Math.min(chunkSize * (chunkNumber + 1), fileTotalSize + 1)
+        this.chunkSize * chunkNumber,
+        Math.min(this.chunkSize * (chunkNumber + 1), fileTotalSize + 1)
       );
       let data = new FormData();
       data.append('chunk', chunk);
       this.uploadProgress = (
-        ((chunkSize * (chunkNumber - 1) + chunk.size) / fileTotalSize) * 100
+        ((this.chunkSize * (chunkNumber - 1) + chunk.size) / fileTotalSize) * 100
       );
       chunkNumber = chunkNumber + 1;
       headers['Chunk-Number'] = chunkNumber;
@@ -66,21 +66,20 @@ export default class DropStore {
     this.uploadProgress = 0;
     let chunkNumber = 0;
     let fileTotalSize = file.size;
-    let chunkSize = 101024;
     let headers = {
       'content-type': 'multipart/form-data',
       'File-Total-Size': fileTotalSize,
-      'Chunk-Size': chunkSize
+      'Chunk-Size': this.chunkSize
     }
     while (true) {
       const chunk = file.slice(
-        chunkSize * chunkNumber,
-        Math.min(chunkSize * (chunkNumber + 1), fileTotalSize + 1)
+        this.chunkSize * chunkNumber,
+        Math.min(this.chunkSize * (chunkNumber + 1), fileTotalSize + 1)
       );
       let data = new FormData();
       data.append('chunk', chunk);
       this.uploadProgress = (
-        ((chunkSize * (chunkNumber - 1) + chunk.size) / fileTotalSize) * 100
+        ((this.chunkSize * (chunkNumber - 1) + chunk.size) / fileTotalSize) * 100
       );
       chunkNumber = chunkNumber + 1;
       headers['Chunk-Number'] = chunkNumber;

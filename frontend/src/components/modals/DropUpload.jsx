@@ -4,6 +4,8 @@ import { inject, observer } from 'mobx-react';
 import { Redirect } from 'react-router-dom';
 import Modal from 'react-bootstrap4-modal';
 
+import ProgressBar from '../ProgressBar';
+
 
 @inject('store', 'routing')
 @observer
@@ -45,24 +47,33 @@ class DropUploadModal extends Component {
     const { visibility, hideModal } = this.modalStore;
     const { uploadProgress } = this.dropStore;
     return (
-      <Modal visible={ visibility['DropUpload'] } onClickBackdrop={ this.hide }>
+      <Modal visible={ visibility['DropUpload'] }
+        onClickBackdrop={ () => { !uploadProgress && this.hide() } }>
       <div className="modal-header">
         <h5 className="modal-title">Upload a Drop</h5>
       </div>
       <div className="modal-body">
-          <input type="file" onChange={ this.handleFileChange } accept="image/*"/>
-          { uploadProgress }
+          {
+            uploadProgress ?
+            <ProgressBar value={ uploadProgress }/> :
+            <input type="file" onChange={ this.handleFileChange } accept="image/*"/>
+          }
       </div>
-      <div className="modal-footer">
-        <button type="button" className="btn btn-secondary" onClick={ this.hide }>
-          Cancel
-        </button>
-        {
-          this.state && this.state.file ?
-          <button type="button" className="btn btn-primary" onClick={ this.uploadDrop }>Upload</button> :
-          null
-        }
-      </div>
+      {
+        uploadProgress ?
+        null : (
+          <div className="modal-footer">
+            <button type="button" className="btn btn-secondary" onClick={ this.hide }>
+              Cancel
+            </button>
+            {
+              this.state && this.state.file ?
+              <button type="button" className="btn btn-primary" onClick={ this.uploadDrop }>Upload</button> :
+              null
+            }
+          </div>
+        )
+      }
     </Modal>
     )
   }

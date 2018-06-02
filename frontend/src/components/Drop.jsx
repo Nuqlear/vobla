@@ -5,7 +5,6 @@ import { Route, Link, Redirect } from 'react-router-dom';
 import Moment from 'react-moment';
 import TiTrash from 'react-icons/lib/ti/trash';
 import TiUpload from 'react-icons/lib/ti/upload';
-import Carousel from 'nuka-carousel';
 
 import Loader from './Loader';
 import Header from './Header';
