@@ -8,6 +8,7 @@ import Header from './Header'
 export default function Protected(Component) {
 
   @inject('store')
+  @observer
   class AuthenticatedComponent extends Component {
 
     constructor(props) {

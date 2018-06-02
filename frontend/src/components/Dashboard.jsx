@@ -46,7 +46,7 @@ class Dashboard extends Component {
   }
 
   getDropPreview(drop) {
-    return drop.preview_url;
+    return drop.preview_url || drop.dropfiles[0].url;
   }
 
   checkImagesLoaded = () => {

@@ -26,24 +26,32 @@ class UploadModal extends Component {
 
   hide = () => {
     this.clearFileInput();
-    this.fileinput_target && (this.fileinput_target.value = null);
+    this.fileInputTarget && (this.fileInputTarget.value = null);
     this.modalStore.hideModal();
   }
 
   handleFileChange = (e) => {
-    this.fileinput_target = e.target;
+    this.fileInputTarget = e.target;
     this.setState({file: e.target.files[0]});
+  }
+
+  uploadDrop = async () => {
+    const dropHash = await this.dropStore.uploadDrop(this.state.file);
+    this.hide();
+    this.props.routing.push(`/d/${dropHash}`);
   }
 
   render() {
     const { visible, hideModal } = this.modalStore;
+    const { uploadProgress } = this.dropStore;
     return (
       <Modal visible={ visible } onClickBackdrop={ this.hide }>
       <div className="modal-header">
         <h5 className="modal-title">Upload a Drop</h5>
       </div>
       <div className="modal-body">
-          <input type="file" onChange={ this.handleFileChange }/>
+          <input type="file" onChange={ this.handleFileChange } accept="image/*"/>
+          { uploadProgress }
       </div>
       <div className="modal-footer">
         <button type="button" className="btn btn-secondary" onClick={ this.hide }>
@@ -51,7 +59,7 @@ class UploadModal extends Component {
         </button>
         {
           this.state && this.state.file ?
-          <button type="button" className="btn btn-primary">Upload</button> :
+          <button type="button" className="btn btn-primary" onClick={ this.uploadDrop }>Upload</button> :
           null
         }
       </div>

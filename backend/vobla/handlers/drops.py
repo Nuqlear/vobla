@@ -61,8 +61,7 @@ class UserDropsHandler(BaseHandler):
             models.Drop.t.select()
             .where(and_(
                 models.Drop.c.owner_id == self.user.id,
-                models.Drop.c.created_at < created_at,
-                models.Drop.c.is_preview_ready.is_(True)
+                models.Drop.c.created_at < created_at
             ))
             .limit(80)
             .order_by(desc(models.Drop.c.created_at))

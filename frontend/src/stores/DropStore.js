@@ -8,6 +8,51 @@ export default class DropStore {
   @observable inProgress = true;
   @observable previewIsLoading = true;
   @observable cursor = undefined;
+  @observable uploadProgress = undefined;
+
+  @action async uploadDrop(file) {
+    this.uploadProgress = 0;
+    let chunkNumber = 0;
+    let fileTotalSize = file.size;
+    let chunkSize = 101024;
+    let headers = {
+      'content-type': 'multipart/form-data',
+      'File-Total-Size': fileTotalSize,
+      'Chunk-Size': chunkSize
+    }
+    while (true) {
+      const chunk = file.slice(
+        chunkSize * chunkNumber,
+        Math.min(chunkSize * (chunkNumber + 1), fileTotalSize + 1)
+      );
+      let data = new FormData();
+      data.append('chunk', chunk);
+      this.uploadProgress = (
+        ((chunkSize * (chunkNumber - 1) + chunk.size) / fileTotalSize) * 100
+      );
+      chunkNumber = chunkNumber + 1;
+      headers['Chunk-Number'] = chunkNumber;
+      const resp = await axios.post(
+        '/api/drops/upload',
+        data, {
+          headers: headers
+        }
+      )
+      if (resp.data) {
+        if (resp.data.drop_hash) {
+          headers['Drop-Hash'] = resp.data.drop_hash;
+        }
+        if (resp.data.drop_file_hash) {
+          headers['Drop-File-Hash'] = resp.data.drop_file_hash;
+        }
+      }
+      if (resp.status === 201) {
+        this.uploadProgress = undefined;
+        break;
+      }
+    }
+    return headers['Drop-Hash'];
+  }
 
   @action async loadDrops() {
     try {
@@ -57,6 +102,15 @@ export default class DropStore {
         console.log(e.resp)
         this.inProgress = false;
         return false;
+      }
+      const index = this.drops.findIndex((element) => {
+        return element.hash === this.drop.hash;
+      });
+      if (index > -1) {
+        this.drops[index] = this.drop;
+      }
+      else {
+        this.drops.push(this.drop);
       }
     }
     else {

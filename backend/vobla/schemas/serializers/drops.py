@@ -44,7 +44,11 @@ class DropSchema(BaseSchema):
     preview_url = fields.Method('_get_preview_url')
 
     def _get_preview_url(self, obj):
-        return f'{build_drop_url(obj.hash)}/preview'
+        return (
+            f'{build_drop_url(obj.hash)}/preview'
+            if obj.is_preview_ready else
+            None
+        )
 
     def _get_url(self, obj):
         return build_drop_url(obj.hash)
