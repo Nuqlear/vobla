@@ -39,7 +39,6 @@ class DropSchema(BaseSchema):
     name = fields.Str(required=True)
     hash = fields.Str(required=True)
     created_at = fields.DateTime(required=True)
-    owner = fields.Nested(OwnerSchema, required=True)
     dropfiles = fields.Nested(DropFileSchema, many=True)
     url = fields.Method('_get_url')
     preview_url = fields.Method('_get_preview_url')

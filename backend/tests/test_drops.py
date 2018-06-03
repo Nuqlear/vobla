@@ -44,7 +44,6 @@ class UserDropsHandlerTest(TestMixin):
                 'name', 'hash'
             ):
                 assert getattr(drop, attr) == drops[0][attr]
-            assert drops[0]['owner']['email'] == u.email
             assert (
                 drop.created_at.replace(tzinfo=timezone.utc).isoformat() ==
                 drops[0]['created_at']
@@ -141,7 +140,6 @@ class DropHandlerTest(TestMixin):
                 'name', 'hash'
             ):
                 assert getattr(drop, attr) == resp.body[attr]
-            assert resp.body['owner']['email'] == u.email
             assert (
                 drop.created_at.replace(tzinfo=timezone.utc).isoformat() ==
                 resp.body['created_at']
