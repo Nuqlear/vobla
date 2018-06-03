@@ -1,4 +1,5 @@
 import asyncio
+import pyssdb
 
 import tornado.web
 import tornado.ioloop
@@ -19,6 +20,9 @@ class TornadoApplication(tornado.web.Application):
     def __init__(self):
         asyncio.get_event_loop().run_until_complete(
             self.init_pg()
+        )
+        self.ssdb = pyssdb.Client(
+            host=config['ssdb']['host'], port=int(config['ssdb']['port'])
         )
         tornado.web.Application.__init__(
             self, url_patterns, **config['tornado']

@@ -1,4 +1,3 @@
-import os
 import itertools
 from datetime import datetime
 
@@ -23,7 +22,6 @@ def utcnow2ms(utcnow: datetime):
 def get_dropfiles_paths(dropfiles):
     for dropfile in dropfiles:
         yield dropfile.file_path
-        yield dropfile.temp_folder_path
 
 
 @api_spec_exists
@@ -393,6 +391,7 @@ class DropUploadHandler(BaseHandler):
             - in: header
               name: 'Chunk-Size'
               type: integer
+              description: Can't be larger than 30MB
               required: true
             - in: header
               name: 'File-Total-Size'
@@ -489,46 +488,46 @@ class DropUploadHandler(BaseHandler):
                             )
                         }
                     )
-            chunks_dir = drop_file.temp_folder_path
-            chunk_file_full_path = os.path.join(
-                chunks_dir, "{}.part{}".format(drop_file.hash, chunk_number)
-            )
+
             chunk = self.request.files.get('chunk', None)
             if chunk is None:
                 raise errors.validation.VoblaValidationError(
                     chunk='Request does not contain DropFile\'s chunk.'
                 )
             chunk = chunk[0]
-            with open(chunk_file_full_path, 'wb+') as file:
-                file.write(chunk.body)
-            current_chunk_size = os.stat(chunk_file_full_path).st_size
+            current_chunk_size = len(chunk.body)
+            # 31457280 bytes = 30mb
+            if max(chunk_size, current_chunk_size) > 31457280:
+                raise errors.validation.VoblaValidationError(
+                    **{
+                        'Chunk-Size': (
+                            "Chunk size can't be larger than 30MB"
+                        )
+                    }
+
+                )
+            # save chunks in ssdb with ttl=600s
+            self.application.ssdb.set(f'{drop.hash}:{chunk_number}', chunk.body, 600)
             current_total_size = (chunk_number - 1) * chunk_size
             progress = (
                 (current_total_size + current_chunk_size) / file_total_size
             )
             if progress >= 1:
                 with open(drop_file.file_path, "ba+") as target_file:
-                    for i in range(1, 1 + chunk_number):
-                        stored_chunk_file_name = os.path.join(
-                            chunks_dir,
-                            "{}.part{}".format(drop_file.hash, str(i))
-                        )
-                        try:
-                            stored_chunk_file = open(
-                                stored_chunk_file_name, 'rb'
-                            )
-                        except FileNotFoundError:
+                    for ind in range(1, 1 + chunk_number):
+                        ssdb_key = f'{drop.hash}:{ind}'
+                        value = self.application.ssdb.get(ssdb_key)
+                        if value is None:
                             raise errors.validation.VoblaValidationError(
                                 **{
                                     'Chunk-Number': (
-                                        f'Previous chunk #{i} not found.'
+                                        f'Previous chunk #{ind} not found.'
                                     )
                                 }
 
                             )
-                        target_file.write(stored_chunk_file.read())
-                        stored_chunk_file.close()
-                        os.unlink(stored_chunk_file_name)
+                        self.application.ssdb.delete(ssdb_key)
+                        target_file.write(value)
                     target_file.seek(0)
                     drop_file.mimetype = magic.from_buffer(
                         target_file.read(1024), mime=True

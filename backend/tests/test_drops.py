@@ -26,7 +26,6 @@ class DropsTestMixin(TestMixin):
         cls.patches = [
             mock.patch.dict(
                 config._proxies['vobla'], {
-                    'temp_upload_folder': tempfile.mkdtemp(),
                     'upload_folder': tempfile.mkdtemp()
                 }
             )
@@ -36,7 +35,6 @@ class DropsTestMixin(TestMixin):
 
     @classmethod
     def tearDownClass(cls):
-        shutil.rmtree(config['vobla']['temp_upload_folder'])
         shutil.rmtree(config['vobla']['upload_folder'])
         for patch in cls.patches:
             patch.stop()

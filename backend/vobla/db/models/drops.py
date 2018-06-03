@@ -110,10 +110,7 @@ class DropFile(Model):
             await obj.insert(pgc, [obj.c.created_at])
             obj.hash = '{}'.format(hashids.encode(obj.id, ord('f')))
             await obj.update(pgc)
-            for folder in (
-                os.path.dirname(obj.file_path), obj.temp_folder_path
-            ):
-                os.makedirs(folder, exist_ok=True)
+            os.makedirs(os.path.dirname(obj.file_path), exist_ok=True)
             return obj
 
     @property
@@ -123,15 +120,5 @@ class DropFile(Model):
         day = self.created_at.strftime('%d')
         return os.path.join(
             config['vobla']['upload_folder'],
-            year, month, day, self.hash
-        )
-
-    @property
-    def temp_folder_path(self):
-        year = self.created_at.strftime('%y')
-        month = self.created_at.strftime('%m')
-        day = self.created_at.strftime('%d')
-        return os.path.join(
-            config['vobla']['temp_upload_folder'],
             year, month, day, self.hash
         )
