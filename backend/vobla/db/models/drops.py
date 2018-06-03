@@ -1,5 +1,4 @@
 import datetime
-import os
 
 import sqlalchemy as sa
 from sqlalchemy import and_
@@ -14,7 +13,13 @@ from vobla.settings import config
 hashids = Hashids(salt=config['tornado']['secret_key'], min_length=16)
 
 
-class Drop(Model):
+class MinioMixin:
+
+    def get_from_minio(self, minio):
+        return minio.get_object(self.bucket, self.hash)
+
+
+class Drop(MinioMixin, Model):
     __tablename__ = 'drop'
     schema = [
         sa.Column('id', sa.Integer, primary_key=True),
@@ -29,16 +34,15 @@ class Drop(Model):
         sa.Column('is_preview_ready', sa.Boolean, default=False)
     ]
     serializer = serializers.drops.DropSchema()
+    bucket = 'drops'
 
-    @property
-    def preview_path(self):
-        year = self.created_at.strftime('%y')
-        month = self.created_at.strftime('%m')
-        day = self.created_at.strftime('%d')
-        return os.path.join(
-            config['vobla']['upload_folder'],
-            year, month, day, self.hash
-        )
+    @classmethod
+    def encode(cls, id_):
+        return hashids.encode(id_, ord('d'))
+
+    @classmethod
+    def decode(cls, hash_):
+        return hashids.decode(hash_)[0]
 
     async def serialize(self, pgc, *args, owner=None, dropfiles=None):
         if owner is None:
@@ -79,14 +83,14 @@ class Drop(Model):
         async with pgc.begin():
             obj = cls(name=name, owner_id=owner.id)
             await obj.insert(pgc, [obj.c.created_at])
-            obj.hash = '{}'.format(hashids.encode(obj.id, ord('d')))
+            obj.hash = '{}'.format(obj.encode(obj.id))
             if name is None:
                 obj.name = obj.hash
             await obj.update(pgc)
             return obj
 
 
-class DropFile(Model):
+class DropFile(MinioMixin, Model):
     __tablename__ = 'drop_file'
     schema = [
         sa.Column('id', sa.Integer, primary_key=True),
@@ -102,23 +106,21 @@ class DropFile(Model):
         sa.Column('uploaded_at', sa.DateTime, nullable=True)
     ]
     serializer = serializers.drops.DropFileSchema()
+    bucket = 'dropfiles'
+
+    @classmethod
+    def encode(cls, id_):
+        return hashids.encode(id_, ord('f'))
+
+    @classmethod
+    def decode(cls, hash_):
+        return hashids.decode(hash_)[0]
 
     @classmethod
     async def create(cls, pgc, drop, name=None):
         async with pgc.begin():
             obj = cls(name=name, drop_id=drop.id)
             await obj.insert(pgc, [obj.c.created_at])
-            obj.hash = '{}'.format(hashids.encode(obj.id, ord('f')))
+            obj.hash = '{}'.format(obj.encode(obj.id))
             await obj.update(pgc)
-            os.makedirs(os.path.dirname(obj.file_path), exist_ok=True)
             return obj
-
-    @property
-    def file_path(self):
-        year = self.created_at.strftime('%y')
-        month = self.created_at.strftime('%m')
-        day = self.created_at.strftime('%d')
-        return os.path.join(
-            config['vobla']['upload_folder'],
-            year, month, day, self.hash
-        )

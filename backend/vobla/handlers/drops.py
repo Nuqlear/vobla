@@ -1,4 +1,5 @@
 import itertools
+from io import BytesIO
 from datetime import datetime
 
 import magic
@@ -17,11 +18,6 @@ from vobla.schemas.serializers.drops import (
 
 def utcnow2ms(utcnow: datetime):
     return int((utcnow - datetime(1970, 1, 1)).total_seconds() * 1000)
-
-
-def get_dropfiles_paths(dropfiles):
-    for dropfile in dropfiles:
-        yield dropfile.file_path
 
 
 @api_spec_exists
@@ -124,10 +120,12 @@ class UserDropsHandler(BaseHandler):
                 self.pgc,
                 models.Drop.c.owner_id == self.user.id
             )
-            tasks.rmtree.delay(
-                *itertools.chain(*[
-                    get_dropfiles_paths(drop.dropfiles)
+            self.application.minio.remove_objects(
+                models.DropFile.bucket,
+                itertools.chain(*[
+                    dropfile.hash
                     for drop in drops
+                    for dropfile in drop.dropfiles
                 ])
             )
         self.set_status(200)
@@ -156,7 +154,7 @@ class DropHandler(BaseHandler):
                 schema: VoblaHTTPErrorSchema
         '''
         drop = await models.Drop.select(
-            self.pgc, models.Drop.c.id == models.hashids.decode(drop_hash)[0]
+            self.pgc, models.Drop.c.id == models.Drop.decode(drop_hash)
         )
         if drop is None:
             raise errors.http.VoblaHTTPError(
@@ -194,7 +192,7 @@ class DropHandler(BaseHandler):
         '''
         drops = await models.Drop.fetch(
             self.pgc,
-            models.Drop.c.id == models.hashids.decode(drop_hash)[0]
+            models.Drop.c.id == models.Drop.decode(drop_hash)
         )
         if drops:
             drop = drops[0]
@@ -203,10 +201,13 @@ class DropHandler(BaseHandler):
             else:
                 await models.Drop.delete(
                     self.pgc,
-                    models.Drop.c.id == models.hashids.decode(drop_hash)[0]
+                    models.Drop.c.id == models.Drop.decode(drop_hash)
                 )
                 self.set_status(200)
-                tasks.rmtree.delay(*get_dropfiles_paths(drop.dropfiles))
+                self.application.minio.remove_objects(
+                    models.DropFile.bucket,
+                    [dropfile.hash for dropfile in drop.dropfiles]
+                )
         else:
             self.set_status(404)
         self.finish()
@@ -235,7 +236,7 @@ class DropPreviewHandler(BaseHandler):
         drop = await models.Drop.select(
             self.pgc,
             and_(
-                models.Drop.c.id == models.hashids.decode(drop_hash)[0],
+                models.Drop.c.id == models.Drop.decode(drop_hash),
                 models.Drop.c.is_preview_ready.is_(True)
             )
         )
@@ -243,14 +244,11 @@ class DropPreviewHandler(BaseHandler):
             raise errors.http.VoblaHTTPError(
                 404, 'Drop with such hash is not found.'
             )
-        with open(drop.preview_path, 'rb') as f:
-            preview_buffer = f.read()
-            self.write(preview_buffer)
-            self.set_header('Content-Type', magic.from_buffer(
-                preview_buffer, mime=True
-            ))
+        obj = drop.get_from_minio(self.application.minio)
+        self.set_header('Content-Type', obj.getheader('Content-Type'))
+        for d in obj.stream(32*1024):
+            self.write(d)
         self.set_status(200)
-        self.finish()
 
 
 @api_spec_exists
@@ -279,7 +277,7 @@ class DropFileHandler(BaseHandler):
         '''
         dropfile = await models.DropFile.select(
             self.pgc,
-            models.DropFile.c.id == models.hashids.decode(drop_file_hash)[0]
+            models.DropFile.c.id == models.DropFile.decode(drop_file_hash)
         )
         if dropfile is None:
             self.set_status(404)
@@ -318,7 +316,7 @@ class DropFileHandler(BaseHandler):
             dropfile = await models.DropFile.select(
                 self.pgc,
                 and_(
-                    models.DropFile.c.id == models.hashids.decode(drop_file_hash)[0],
+                    models.DropFile.c.id == models.DropFile.decode(drop_file_hash),
                     models.DropFile.c.drop_id.in_(
                         select([user_drops_cte.c.id])
                     )
@@ -333,7 +331,9 @@ class DropFileHandler(BaseHandler):
                 .values(is_preview_ready=False)
                 .where(models.Drop.c.id == dropfile.drop_id)
             )
-            tasks.rmtree.delay(*get_dropfiles_paths([dropfile]))
+            self.application.minio.remove_object(
+                models.DropFile.bucket, dropfile.hash
+            )
         tasks.generate_previews.delay(dropfile.drop_id)
         self.set_status(200)
         self.finish()
@@ -442,7 +442,7 @@ class DropUploadHandler(BaseHandler):
                     )
                 else:
                     drop = await models.Drop.select(
-                        self.pgc, models.Drop.c.id == models.hashids.decode(drop_hash)[0]
+                        self.pgc, models.Drop.c.id == models.Drop.decode(drop_hash)
                     )
                     if drop is None:
                         raise errors.validation.VoblaValidationError(
@@ -513,25 +513,33 @@ class DropUploadHandler(BaseHandler):
                 (current_total_size + current_chunk_size) / file_total_size
             )
             if progress >= 1:
-                with open(drop_file.file_path, "ba+") as target_file:
-                    for ind in range(1, 1 + chunk_number):
-                        ssdb_key = f'{drop.hash}:{ind}'
-                        value = self.application.ssdb.get(ssdb_key)
-                        if value is None:
-                            raise errors.validation.VoblaValidationError(
-                                **{
-                                    'Chunk-Number': (
-                                        f'Previous chunk #{ind} not found.'
-                                    )
-                                }
+                buffer = BytesIO()
+                for ind in range(1, 1 + chunk_number):
+                    ssdb_key = f'{drop.hash}:{ind}'
+                    value = self.application.ssdb.get(ssdb_key)
+                    if value is None:
+                        raise errors.validation.VoblaValidationError(
+                            **{
+                                'Chunk-Number': (
+                                    f'Previous chunk #{ind} not found.'
+                                )
+                            }
 
-                            )
-                        self.application.ssdb.delete(ssdb_key)
-                        target_file.write(value)
-                    target_file.seek(0)
-                    drop_file.mimetype = magic.from_buffer(
-                        target_file.read(1024), mime=True
-                    )
+                        )
+                    self.application.ssdb.delete(ssdb_key)
+                    buffer.write(value)
+                buffer.seek(0)
+                drop_file.mimetype = magic.from_buffer(
+                    buffer.read(1024), mime=True
+                )
+                buffer.seek(0)
+                self.application.minio.put_object(
+                    bucket_name=models.DropFile.bucket,
+                    object_name=drop_file.hash,
+                    data=buffer,
+                    content_type=drop_file.mimetype,
+                    length=file_total_size
+                )
                 drop_file.uploaded_at = datetime.utcnow()
                 await drop_file.update(self.pgc)
                 self.set_status(201)
@@ -574,7 +582,7 @@ class DropFileContentHandler(BaseHandler):
         dropfile = await models.DropFile.select(
             self.pgc,
             and_(
-                models.DropFile.c.id == models.hashids.decode(drop_file_hash)[0],
+                models.DropFile.c.id == models.DropFile.decode(drop_file_hash),
                 models.DropFile.c.uploaded_at.isnot(None)
             )
         )
@@ -583,7 +591,8 @@ class DropFileContentHandler(BaseHandler):
                 404, 'DropFile with such hash is not found.'
             )
         self.set_header('Content-Type', dropfile.mimetype)
-        with open(dropfile.file_path, 'rb') as f:
-            self.write(f.read())
+        stream = dropfile.get_from_minio(self.application.minio).stream(32*1024)
+        for stream_data in stream:
+            self.write(stream_data)
         self.set_status(200)
         self.finish()

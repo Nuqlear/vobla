@@ -8,6 +8,7 @@ services:
       - postgres
       - redis
       - ssdb
+      - minio
     environment:
       - TORNADO_SECRET_KEY=${TORNADO_SECRET_KEY}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -15,6 +16,9 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - CELERY_BROKER_URL=${CELERY_BROKER_URL}
       - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_PORT=${MINIO_PORT}
   postgres:
     image: postgres:9.3
     volumes:
@@ -28,6 +32,17 @@ services:
     command: redis-server --logfile /dev/null
   ssdb:
     image: leobuskin/ssdb-docker
+  minio:
+    image: minio/minio
+    command:
+      server --address :${MINIO_PORT} /data
+    volumes:
+      - minio-data:/data
+    environment:
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+
 
 volumes:
   db-data:
+  minio-data:

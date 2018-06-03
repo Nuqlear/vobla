@@ -1,7 +1,10 @@
 import os
 import shutil
+import tempfile
 import subprocess
+from io import BytesIO
 
+import magic
 from sqlalchemy import create_engine, and_
 from celery import Celery
 from celery.task import Task
@@ -10,6 +13,7 @@ from celery.signals import worker_init
 from vobla.db import models
 from vobla.db.engine import get_engine_params
 from vobla.settings import config
+from vobla.utils.minio import get_minio_client
 
 
 celery_app = Celery(__name__)
@@ -30,19 +34,27 @@ class BaseTask(Task):
             )
         )
 
+    @classmethod
+    def create_minio_client(cls):
+        cls.minio = get_minio_client()
+
 
 @worker_init.connect
 def configure_workers(*args, **kwargs):
     BaseTask.create_engine()
+    BaseTask.create_minio_client()
 
 
-@celery_app.task(base=BaseTask)
-def rmtree(*paths):
-    for path in paths:
-        if os.path.isfile(path):
-            os.unlink(path, dir_fd=None)
-        else:
-            shutil.rmtree(path)
+def get_drop_file_images(*, temp_folder, rows, minio):
+    for drop_file in (
+        models.DropFile._construct_from_row(row)
+        for row in rows
+    ):
+        drop_file_path = os.path.join(temp_folder, drop_file.hash)
+        with open(drop_file_path, 'wb+') as f:
+            for d in drop_file.get_from_minio(minio).stream(32*1024):
+                f.write(d)
+        yield drop_file_path
 
 
 @celery_app.task(base=BaseTask, bind=True)
@@ -57,31 +69,46 @@ def generate_previews(self, drop_id: int):
             ))
         ).fetchall()
         if rows:
-            images = (
-                models.DropFile._construct_from_row(row).file_path
-                for row in rows
-            )
-            destination = models.Drop._construct_from_row(
-                conn.execute(
-                    models.Drop.t.select()
-                    .where(models.Drop.c.id == drop_id)
-                ).fetchone()
-            ).preview_path
-            if len(rows) == 1:
-                cmd = [
-                    'convert', next(images), '-thumbnail', '150x100^',
-                    '-gravity', 'center', '-extent', '150x100', destination
-                ]
-            else:
-                cmd = [
-                    'montage', *images, '-geometry', '150x100^', destination
-                ]
+            temp_folder = tempfile.mkdtemp()
             try:
-                subprocess.check_call(cmd, stderr=subprocess.STDOUT)
-            except subprocess.CalledProcessError as e:
+                images = get_drop_file_images(
+                    temp_folder=temp_folder, rows=rows, minio=self.minio
+                )
+                if len(rows) == 1:
+                    cmd = [
+                        'convert',
+                        next(images),
+                        '-thumbnail',
+                        '150x100^',
+                        '-gravity',
+                        'center',
+                        '-extent',
+                        '150x100',
+                        '-'
+                    ]
+                else:
+                    cmd = [
+                        'montage',
+                        # [0] should be added otherwise all gif frames will be displayed
+                        *map(lambda im: f'{im}[0]', images),
+                        '-geometry',
+                        '150x100^',
+                        '-'
+                    ]
+                data = subprocess.check_output(cmd, stderr=open(os.devnull, 'w'))
+                content_type = magic.from_buffer(data, mime=True)
+                self.minio.put_object(
+                    bucket_name=models.Drop.bucket,
+                    object_name=models.Drop.encode(drop_id),
+                    data=BytesIO(data),
+                    content_type=content_type,
+                    length=len(data)
+                )
+                conn.execute(
+                    models.Drop.t.update()
+                    .values(is_preview_ready=True)
+                    .where(models.Drop.c.id == drop_id)
+                )
+            except Exception as e:
+                shutil.rmtree(temp_folder)
                 raise
-            conn.execute(
-                models.Drop.t.update()
-                .values(is_preview_ready=True)
-                .where(models.Drop.c.id == drop_id)
-            )

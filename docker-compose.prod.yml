@@ -4,16 +4,14 @@ services:
     command: ["bash", "./wait-for-postgres.sh", "python manage.py --migrate runserver"]
     volumes:
       - ./wait-for-postgres.sh:/wait-for-postgres.sh
-      - ./volumes/vobla:/var/vobla
     environment:
       - ENV=prod
   backend-worker:
     command: ["python", "manage.py", "runworker"]
     image: nuqlya/vobla-api:latest
-    volumes:
-      - ./volumes/vobla:/var/vobla
     depends_on:
       - redis
+      - minio
     environment:
       - TORNADO_SECRET_KEY=${TORNADO_SECRET_KEY}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -21,6 +19,9 @@ services:
       - POSTGRES_DB=${POSTGRES_DB}
       - CELERY_BROKER_URL=${CELERY_BROKER_URL}
       - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - MINIO_ACCESS_KEY=${MINIO_ACCESS_KEY}
+      - MINIO_SECRET_KEY=${MINIO_SECRET_KEY}
+      - MINIO_PORT=${MINIO_PORT}
       - ENV=prod
   frontend:
     image: nuqlya/vobla-frontend:latest

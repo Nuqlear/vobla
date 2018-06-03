@@ -1,10 +1,7 @@
 import os
 import json
-import shutil
-import tempfile
 from itertools import count
 from io import BytesIO
-from unittest import mock
 from datetime import datetime
 from datetime import timezone
 
@@ -13,35 +10,11 @@ from sqlalchemy import and_
 from tornado.testing import gen_test
 
 from vobla.db import models
-from vobla.settings import config
 from vobla import errors
 from tests import TestMixin
 
 
-class DropsTestMixin(TestMixin):
-
-    @classmethod
-    def setUpClass(cls):
-        super(DropsTestMixin, cls).setUpClass()
-        cls.patches = [
-            mock.patch.dict(
-                config._proxies['vobla'], {
-                    'upload_folder': tempfile.mkdtemp()
-                }
-            )
-        ]
-        for patch in cls.patches:
-            patch.start()
-
-    @classmethod
-    def tearDownClass(cls):
-        shutil.rmtree(config['vobla']['upload_folder'])
-        for patch in cls.patches:
-            patch.stop()
-        super(DropsTestMixin, cls).tearDownClass()
-
-
-class UserDropsHandlerTest(DropsTestMixin):
+class UserDropsHandlerTest(TestMixin):
 
     url = '/api/drops'
 
@@ -153,7 +126,7 @@ async def _create_dropfile(conn):
     return u, drop, dropfile
 
 
-class DropHandlerTest(DropsTestMixin):
+class DropHandlerTest(TestMixin):
 
     @gen_test
     async def test_GET_valid(self):
@@ -227,7 +200,7 @@ class DropHandlerTest(DropsTestMixin):
         self.assertValidationError(resp, 'Authorization', 401)
 
 
-class DropFileHandler(DropsTestMixin):
+class DropFileHandler(TestMixin):
 
     @gen_test
     async def test_DELETE_unauthorized(self):
@@ -272,13 +245,13 @@ class DropFileHandler(DropsTestMixin):
         async with self._app.pg.acquire() as conn:
             _, _, dropfile = await _create_dropfile(conn)
             resp = await self.fetch(
-                f'/api/drops/files/{models.hashids.encode(1231, 1)}',
+                f'/api/drops/files/{models.Drop.encode(1231)}',
                 method='GET'
             )
             assert resp.code == 404
 
 
-class DropUploadHandlerTest(DropsTestMixin):
+class DropUploadHandlerTest(TestMixin):
 
     async def _upload_chunk(self, data, headers):
         headers = {
@@ -356,10 +329,11 @@ class DropUploadHandlerTest(DropsTestMixin):
             )
         )
         assert drop_file is not None
-        assert os.path.exists(drop_file.file_path) is True
         assert drop_file.mimetype == 'image/png'
-        with open(drop_file.file_path, 'rb') as uploaded_f:
-            assert uploaded_f.read() == data
+        obj = drop_file.get_from_minio(self.minio)
+        assert obj is not None
+        drop_file_data = obj.read()
+        assert drop_file_data == data
         return drop_file
 
     @gen_test(timeout=15)
@@ -424,7 +398,7 @@ class DropUploadHandlerTest(DropsTestMixin):
                     'Chunk-Number': chunk_number,
                     'Chunk-Size': 100,
                     'File-Total-Size': 200,
-                    'Drop-Hash': models.hashids.encode(21231, 1)
+                    'Drop-Hash': models.Drop.encode(21231)
                 }
                 resp = await self._upload_chunk(data, headers)
                 self.assertValidationError(resp, 'Drop-Hash', 404)
@@ -444,7 +418,7 @@ class DropUploadHandlerTest(DropsTestMixin):
                     'Chunk-Number': chunk_number,
                     'Chunk-Size': 100,
                     'File-Total-Size': 100,
-                    'Drop-File-Hash': models.hashids.encode(1231, 1)
+                    'Drop-File-Hash': models.DropFile.encode(1231)
                 }
                 resp = await self._upload_chunk(data, headers)
                 self.assertValidationError(resp, 'Drop-File-Hash', 404)
