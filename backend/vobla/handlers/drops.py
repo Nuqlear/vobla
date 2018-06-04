@@ -661,9 +661,11 @@ class DropFileContentHandler(BaseHandler):
         description: Download a DropFile
         tags:
             - drops
+        produces:
+            - application/json
         parameters:
-            - in: path
-              name: drop_file_hash
+            - in: header
+              name: 'Authorization'
               type: string
               required: true
         responses:

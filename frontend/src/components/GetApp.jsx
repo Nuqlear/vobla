@@ -1,9 +1,26 @@
 import React from 'react';
-import { Link, withRouter } from 'react-router-dom';
+import axios from 'axios';
+import { Link } from 'react-router-dom';
 
 import FaWindows from 'react-icons/lib/fa/windows';
 import FaLinux from 'react-icons/lib/fa/linux';
 import FaApple from 'react-icons/lib/fa/apple';
+
+
+const getSharex = () => {
+  axios({
+    url: '/api/sharex',
+    method: 'get',
+    responseType: 'blob'
+  }).then((response) => {
+    const url = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', 'vobla.sxcu');
+    document.body.appendChild(link);
+    link.click();
+  });
+}
 
 
 const GetApp = () => {
@@ -20,19 +37,23 @@ const GetApp = () => {
                   </Link>
                 </div>
                 <div className='body text-center'>
-                  <h5> Select an Operating System install package to get started. </h5>
+                  <h5> Select an preferrable installation method to get started. </h5>
                   <div className='list-group'>
+                    <a className='btn btn-default list-group-item' onClick={ getSharex }>
+                      <FaWindows size={ 28 } color='cornflowerblue'/>
+                      <span className='text'>ShareX Vobla Uploader</span>
+                    </a>
                     <a className='btn btn-default list-group-item' href='/release/win/Setup.exe'>
                       <FaWindows size={ 28 } color='cornflowerblue'/>
-                      <span className='text'>Windows installer</span>
+                      <span className='text'>Vobla App Installer</span>
                     </a>
                     <a className='btn btn-default list-group-item disabled' href=''>
                       <FaApple size={ 28 } color='cornflowerblue'/>
-                      <span className='text'>macOS installer</span>
+                      <span className='text'>Not Availiable ATM</span>
                     </a>
                     <a className='btn btn-default list-group-item disabled' href=''>
                       <FaLinux size={ 28 } color='cornflowerblue'/>
-                      <span className='text'>Linux / Ubuntu installer</span>
+                      <span className='text'>Not Availiable ATM</span>
                     </a>
                   </div>
                 </div>

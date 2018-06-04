@@ -1,4 +1,4 @@
-from vobla.handlers import users, drops
+from vobla.handlers import users, drops, sharex
 from vobla.handlers import open_api2
 from vobla.utils import api_spec
 
@@ -18,6 +18,7 @@ api_url_patterns = [
         r"/drops/files/(?P<drop_file_hash>[a-zA-Z0-9]{16})$",
         drops.DropFileHandler
     ],
+    [r"/sharex$", sharex.SharexUploader],
     [r"/drops/upload/chunks$", drops.DropUploadChunksHandler],
     [r"/drops/upload/blob$", drops.DropUploadBlobHandler],
     [

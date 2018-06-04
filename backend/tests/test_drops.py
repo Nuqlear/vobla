@@ -508,3 +508,38 @@ class DropUploadBlobHandlerTest(TestMixin):
                 assert obj is not None
                 drop_file_data = obj.read()
                 assert drop_file_data == data
+
+
+class SharexUploaderTest(TestMixin):
+
+    @gen_test
+    async def test_GET_valid(self):
+        async with self._app.pg.acquire() as conn:
+            user_data = dict(email='mail@mail.ru', password_hash='pass')
+            u = await models.User.insert(conn, user_data)
+            token = u.make_jwt()
+        resp = await self.fetch(
+            '/api/sharex',
+            method='GET',
+            headers={
+                'Authorization': f'Bearer {token}'
+            },
+        )
+        assert resp.code == 200
+        assert json.loads(resp.body) == {
+            'Name': 'vobla',
+            'DestinationType': 'ImageUploader',
+            'RequestURL': 'https://vobla.olegshigor.in/api/drops/upload/blob',
+            'FileFormName': 'blob',
+            'Headers': {
+                'Authorization': f'Bearer {token}'
+            },
+            'URL': 'https://vobla.olegshigor.in/f/$json:drop_file_hash$'
+        }
+
+    @gen_test
+    async def test_GET_401(self):
+        resp = await self.fetch(
+            '/api/sharex', method='GET'
+        )
+        assert resp.code == 401
