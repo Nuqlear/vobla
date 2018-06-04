@@ -44,7 +44,7 @@ export default class DropStore {
       chunkNumber = chunkNumber + 1;
       headers['Chunk-Number'] = chunkNumber;
       const resp = await axios.post(
-        '/api/drops/upload',
+        '/api/drops/upload/chunks',
         data, {
           headers: headers
         }
@@ -84,7 +84,7 @@ export default class DropStore {
       chunkNumber = chunkNumber + 1;
       headers['Chunk-Number'] = chunkNumber;
       const resp = await axios.post(
-        '/api/drops/upload',
+        '/api/drops/upload/chunks',
         data, {
           headers: headers
         }

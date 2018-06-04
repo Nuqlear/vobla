@@ -18,7 +18,8 @@ api_url_patterns = [
         r"/drops/files/(?P<drop_file_hash>[a-zA-Z0-9]{16})$",
         drops.DropFileHandler
     ],
-    [r"/drops/upload$", drops.DropUploadHandler],
+    [r"/drops/upload/chunks$", drops.DropUploadChunksHandler],
+    [r"/drops/upload/blob$", drops.DropUploadBlobHandler],
     [
         r"/drops/files/(?P<drop_file_hash>[a-zA-Z0-9]{16})/content$",
         drops.DropFileContentHandler

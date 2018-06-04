@@ -249,7 +249,7 @@ class DropFileHandler(TestMixin):
             assert resp.code == 404
 
 
-class DropUploadHandlerTest(TestMixin):
+class DropUploadChunksHandlerTest(TestMixin):
 
     async def _upload_chunk(self, data, headers):
         headers = {
@@ -265,7 +265,7 @@ class DropUploadHandlerTest(TestMixin):
         )
         headers['Content-Type'] = prepare.headers.get('Content-Type')
         response = await self.fetch(
-            '/api/drops/upload',
+            '/api/drops/upload/chunks',
             headers=headers,
             method='POST',
             body=prepare.body
@@ -453,3 +453,58 @@ class DropUploadHandlerTest(TestMixin):
                 }
             )
             self.assertValidationError(resp, 'Chunk-Number', 422)
+
+
+class DropUploadBlobHandlerTest(TestMixin):
+
+    @gen_test
+    async def test_POST_valid(self):
+        async with self._app.pg.acquire() as conn:
+            user_data = {
+                'email': 'mail@mail.ru',
+                'password_hash': 'pass',
+            }
+            file_path = os.path.join(
+                os.path.dirname(__file__),
+                'fixtures',
+                'python-logo.png'
+            )
+            with open(file_path, 'rb') as f:
+                data = f.read()
+                u = await models.User.insert(conn, user_data)
+                prepare = (
+                    requests.Request(
+                        url="http://localhost/img",
+                        files={"blob": (BytesIO(data))},
+                        data={}
+                    )
+                    .prepare()
+                )
+                response = await self.fetch(
+                    '/api/drops/upload/blob',
+                    headers={
+                        'Authorization': f'bearer {u.make_jwt()}',
+                        'Content-Type': prepare.headers.get('Content-Type')
+                    },
+                    method='POST',
+                    body=prepare.body
+                )
+                if response.body:
+                    response._body = json.loads(response._body)
+                assert 'drop_file_hash' in response.body
+                assert 'drop_hash' in response.body
+                assert 'url' in response.body
+                assert response.code == 201
+                drop_file = await models.DropFile.select(
+                    conn,
+                    and_(
+                        models.DropFile.c.hash == response.body['drop_file_hash'],
+                        models.Drop.c.hash == response.body['drop_hash']
+                    )
+                )
+                assert drop_file is not None
+                assert drop_file.mimetype == 'image/png'
+                obj = drop_file.get_from_minio(self.minio)
+                assert obj is not None
+                drop_file_data = obj.read()
+                assert drop_file_data == data

@@ -340,10 +340,104 @@ class DropFileHandler(BaseHandler):
 
 
 @api_spec_exists
-class DropUploadHandler(BaseHandler):
+class DropUploadBlobHandler(BaseHandler):
+    def set_default_headers(self):
+        super(DropUploadBlobHandler, self).set_default_headers()
+        self.set_header(
+            'Access-Control-Allow-Headers',
+            (
+                'Origin, X-Requested-With, Content-Type, Accept, '
+                'Authorization, Drop-File-Name'
+            )
+        )
+
+    @jwt_auth.jwt_needed
+    async def post(self):
+        '''
+        ---
+        description: Upload a DropFile in single blob
+        tags:
+            - drops
+        consumes:
+            - multipart/form-data
+        produces:
+            - application/json
+        parameters:
+            - in: header
+              name: 'Authorization'
+              type: string
+              required: true
+            - in: header
+              name: 'Drop-File-Name'
+              description: If not provided will be the same as Drop's Hash
+              type: string
+              required: false
+            - in: formData
+              name: blob
+              type: file
+              required: true
+        responses:
+            201:
+                description: DropFile uploaded
+            401:
+                description: Invalid/Missing authorization header
+                schema: ValidationErrorSchema
+            422:
+                description: Invalid input data
+                schema: ValidationErrorSchema
+        '''
+        async with self.pgc.begin():
+            drop = await models.Drop.create(
+                self.pgc, self.user
+            )
+            drop_file_name = self.request.headers.get('Drop-File-Name', None)
+            drop_file = await models.DropFile.create(
+                self.pgc, drop, drop_file_name
+            )
+            blob = self.request.files.get('blob', None)
+            if blob is None:
+                raise errors.validation.VoblaValidationError(
+                    chunk='Request does not contain DropFile\'s blob.'
+                )
+            blob = blob[0]
+            if len(blob.body) > 31457280:
+                raise errors.validation.VoblaValidationError(
+                    **{
+                        'blob': (
+                            "Blob size can't be larger than 31MB"
+                        )
+                    }
+
+                )
+            drop_file.mimetype = magic.from_buffer(
+                blob.body, mime=True
+            )
+            self.application.minio.put_object(
+                bucket_name=models.DropFile.bucket,
+                object_name=drop_file.hash,
+                data=BytesIO(blob.body),
+                content_type=drop_file.mimetype,
+                length=len(blob.body)
+            )
+            drop_file.uploaded_at = datetime.utcnow()
+            await drop_file.update(self.pgc)
+            serializer = DropFileFirstChunkUploadSchema()
+            self.write(
+                serializer.dump({
+                    'drop_file_hash': drop_file.hash,
+                    'drop_hash': drop.hash
+                }).data
+            )
+        tasks.generate_previews.delay(drop.id)
+        self.set_status(201)
+        self.finish()
+
+
+@api_spec_exists
+class DropUploadChunksHandler(BaseHandler):
 
     def set_default_headers(self):
-        super(DropUploadHandler, self).set_default_headers()
+        super(DropUploadChunksHandler, self).set_default_headers()
         self.set_header(
             'Access-Control-Allow-Headers',
             (

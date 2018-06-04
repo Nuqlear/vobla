@@ -15,3 +15,8 @@ services:
     image: postgres:9.3
     environment:
       - POSTGRES_DB=test_db
+    volumes:
+      - db-test-data:/var/lib/postgresql/data
+
+volumes:
+  db-test-data:
