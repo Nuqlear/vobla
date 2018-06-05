@@ -11,11 +11,39 @@
 }
 
 .dashboard-gallery-empty {
-  svg {
-    color: rgba($primary-color, 0.2);
-    height: 100%;
-    width: 100%;
+
+  a {
+    cursor: default;
   }
+
+  svg {
+    color: rgba($primary-color, 0.3);
+    min-height: 25px;
+    min-width: 25px;
+
+    & path:hover {
+      cursor: pointer;
+      fill: rgba($primary-color, 1);
+    }
+  }
+  @media only screen and (min-width: 768px) {
+    svg {
+      min-height: 50px;
+      min-width: 50px;
+    }
+    font-size: 30px;
+  }
+  font-size: 18px;
+  min-width: 0;
+  min-height: 0;
+  cursor: default;
+  min-height: 100vh;
+  min-width: 100vw;
+  position: fixed;
+  padding-bottom: 150px;
+  align-items: center;
+  justify-content: center;
+  color: rgba($primary-color, 0.3);
 }
 
 .dashboard-gallery-items {

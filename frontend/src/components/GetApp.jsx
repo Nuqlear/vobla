@@ -45,7 +45,9 @@ const GetApp = () => {
                     </a>
                     <a className='btn btn-default list-group-item' href='/release/win/Setup.exe'>
                       <FaWindows size={ 28 } color='cornflowerblue'/>
-                      <span className='text'>Vobla App Installer</span>
+                      <span className='text'>
+                        Vobla App Installer &nbsp;<span className='warn'>warn you: its barebone!</span>
+                      </span>
                     </a>
                     <a className='btn btn-default list-group-item disabled' href=''>
                       <FaApple size={ 28 } color='cornflowerblue'/>

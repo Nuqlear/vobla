@@ -4,6 +4,7 @@ import { inject, observer } from 'mobx-react';
 import { Route, Link, Redirect } from 'react-router-dom';
 import Moment from 'react-moment';
 import TiUpload from 'react-icons/lib/ti/upload';
+import TiArrowForward from 'react-icons/lib/ti/arrow-forward'
 
 import Protected from './Protected';
 import Header from './Header';
@@ -87,7 +88,9 @@ class Dashboard extends Component {
         <div className='contaner'>
           { isLoading ? <Loader/> : null }
           <div className={
-            isLoading ? 'dashboard-gallery-items hidden' : 'dashboard-gallery-items'
+            isLoading ?
+            'dashboard-gallery-empty hidden' :
+            (drops.length == 0 ? 'dashboard-gallery-empty' : 'dashboard-gallery-items')
           }>
             { drops.map(function(drop) {
               return (
@@ -110,6 +113,17 @@ class Dashboard extends Component {
                 </Link>
               );
             }) }
+            {
+              drops.length == 0 ? (
+                <div>
+                  <b>Ooops!</b><br/>
+                  <span>Seems like you did not upload any Drops :(</span><br/>
+                  <span>Would you like to download an App?</span>
+                  <Link to='/getapp'><TiArrowForward/></Link>
+                </div>
+              )
+              : null
+            }
           </div>
         </div>
       </div>
