@@ -75,9 +75,12 @@ def generate_previews(self, drop_id: int):
                     temp_folder=temp_folder, rows=rows, minio=self.minio
                 )
                 if len(rows) == 1:
+                    image = next(images)
+                    if not int(config['vobla']['animated_previews']):
+                        image += '[0]'
                     cmd = [
                         'convert',
-                        next(images),
+                        image,
                         '-thumbnail',
                         '150x100^',
                         '-gravity',
@@ -95,7 +98,8 @@ def generate_previews(self, drop_id: int):
                         '150x100^',
                         '-'
                     ]
-                data = subprocess.check_output(cmd, stderr=open(os.devnull, 'w'))
+                process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                data, error = process.communicate()
                 content_type = magic.from_buffer(data, mime=True)
                 self.minio.put_object(
                     bucket_name=models.Drop.bucket,
@@ -109,6 +113,5 @@ def generate_previews(self, drop_id: int):
                     .values(is_preview_ready=True)
                     .where(models.Drop.c.id == drop_id)
                 )
-            except Exception as e:
+            finally:
                 shutil.rmtree(temp_folder)
-                raise
