@@ -161,7 +161,7 @@ export default class DropStore {
         this.drops[index] = this.drop;
       }
       else {
-        this.drops.push(this.drop);
+        this.drops.unshift(this.drop);
       }
     }
     else {
