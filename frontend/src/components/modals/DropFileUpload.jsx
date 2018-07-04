@@ -5,78 +5,39 @@ import { Redirect } from 'react-router-dom';
 import Modal from 'react-bootstrap4-modal';
 
 import ProgressBar from '../ProgressBar';
+import BaseUploadModal from './BaseUploadModal'
 
 
-@inject('store', 'routing')
+@inject('store')
 @observer
 class DropFileUploadModal extends Component {
 
   constructor(props) {
     super(props);
     this.store = this.props.store;
-    this.dropStore = this.store.dropStore;
-    this.modalStore = this.store.modalStore;
-  }
-
-  componentWillMount() {
-    this.clearFileInput();
-  }
-
-  clearFileInput = () => {
-    this.setState({file: undefined});
-  }
-
-  hide = () => {
-    this.clearFileInput();
-    this.fileInputTarget && (this.fileInputTarget.value = null);
-    this.modalStore.hideModal('DropFileUpload');
-  }
-
-  handleFileChange = (e) => {
-    this.fileInputTarget = e.target;
-    this.setState({file: e.target.files[0]});
   }
 
   uploadDropFile = async () => {
-    const dropFileHash = await this.dropStore.uploadDropFile(
-      this.props.dropHash, this.state.file
+    const dropFileHash = await this.store.dropStore.uploadDropFile(
+      this.props.dropHash, this.fileToUpload
     );
-    await this.dropStore.loadDropFile(dropFileHash);
-    this.hide();
+    await this.store.dropStore.loadDropFile(dropFileHash);
+    this.store.modalStore.hideModal("DropFileUpload");
+  }
+
+  handleFileToUploadChange = (e) => {
+    this.fileToUpload = e.target.files[0];
   }
 
   render() {
-    const { visibility, hideModal } = this.modalStore;
-    const { uploadProgress } = this.dropStore;
     return (
-      <Modal visible={ visibility['DropFileUpload'] }
-        onClickBackdrop={ () => { !uploadProgress && this.hide() } }>
-      <div className="modal-header">
-        <h5 className="modal-title">Upload a DropFile</h5>
-      </div>
-      <div className="modal-body">
-          {
-            uploadProgress ?
-            <ProgressBar value={ uploadProgress }/> :
-            <input type="file" onChange={ this.handleFileChange } accept="image/*"/>
-          }
-      </div>
-      {
-        uploadProgress ?
-        null : (
-          <div className="modal-footer">
-            <button type="button" className="btn btn-secondary" onClick={ this.hide }>
-              Cancel
-            </button>
-            {
-              this.state && this.state.file ?
-              <button type="button" className="btn btn-primary" onClick={ this.uploadDropFile }>Upload</button> :
-              null
-            }
-          </div>
-        )
-      }
-    </Modal>
+      <BaseUploadModal
+        name='DropFileUpload'
+        title='Upload a DropFile'
+        onUploadClick={ this.uploadDropFile }
+        onFileChange={ this.handleFileToUploadChange }
+        {...this.props}
+      />
     )
   }
 };

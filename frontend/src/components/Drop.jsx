@@ -16,13 +16,14 @@ import DropFileUploadModal from './modals/DropFileUpload';
 class Drop extends Component {
   constructor(props) {
     super(props);
+    this.dropHash = this.props.match.params.dropHash;
     this.store = this.props.store;
     this.dropStore = this.store.dropStore;
     this.modalStore = this.store.modalStore;
   }
 
   async componentWillMount() {
-    await this.dropStore.loadDrop(this.props.match.params.dropHash);
+    await this.dropStore.loadDrop(this.dropHash);
   }
 
   checkImagesLoaded = () => {
@@ -66,9 +67,8 @@ class Drop extends Component {
     const self = this;
     return (
       <div>
-        <DropFileUploadModal dropHash={ this.props.match.params.dropHash }/>
+        <DropFileUploadModal dropHash={ this.dropHash }/>
         <Header navbarLeft={ menu }/>
-
         <div className='contaner'>
           { isLoading ? <Loader/> : null }
 

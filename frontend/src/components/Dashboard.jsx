@@ -12,7 +12,7 @@ import Loader from './Loader';
 import DropUploadModal from './modals/DropUpload';
 
 
-@inject('store')
+@inject('store', 'routing')
 @observer
 class Dashboard extends Component {
   constructor(props) {
