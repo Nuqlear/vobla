@@ -27,6 +27,7 @@ export default class DropStore {
     let fileTotalSize = file.size;
     let headers = {
       'content-type': 'multipart/form-data',
+      'Drop-File-Name': file.name,
       'File-Total-Size': fileTotalSize,
       'Chunk-Size': this.chunkSize,
       'Drop-Hash': dropHash
@@ -69,6 +70,7 @@ export default class DropStore {
     let headers = {
       'content-type': 'multipart/form-data',
       'File-Total-Size': fileTotalSize,
+      'Drop-File-Name': file.name,
       'Chunk-Size': this.chunkSize
     }
     while (true) {
@@ -128,8 +130,9 @@ export default class DropStore {
     }
   }
 
-  @action previewLoaded() {
-    this.previewIsLoading = false;
+  @action dropfilePreviewLoaded(dropfile) {
+    this.dropfilesToLoadPreview.delete(dropfile);
+    this.previewIsLoading = this.dropfilesToLoadPreview.size !== 0;
   }
 
   @action async loadDrop(dropHash) {
@@ -167,6 +170,7 @@ export default class DropStore {
     else {
       this.drop = drop;
     }
+    this.dropfilesToLoadPreview = new Set(this.drop.dropfiles);
     this.inProgress = false;
   }
 

@@ -60,6 +60,7 @@
     "react-loadable": "^5.3.1",
     "react-moment": "^0.7.0",
     "react-router-dom": "^4.2.2",
+    "react-syntax-highlighter": "^8.0.0",
     "rfx-core": "^1.5.3",
     "whatwg-fetch": "^2.0.3"
   }
