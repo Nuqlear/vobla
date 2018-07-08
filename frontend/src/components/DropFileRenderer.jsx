@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom'
 import { inject, observer } from 'mobx-react'
 
 import SyntaxHighlighter from './SyntaxHighlighter'
+import DownloadRenderer from './DownloadRenderer'
 
 @inject('store')
 @observer
@@ -24,20 +25,35 @@ class DropFileRenderer extends Component {
   }
 
   render() {
-    return this.props.dropfile.mimetype.startsWith('text') ? (
-      <SyntaxHighlighter
+    if (this.props.dropfile.mimetype.startsWith('image')) {
+      return (
+        <img
+          src={this.props.dropfile.url}
+          onLoad={this.checkImagesLoaded.bind(this)}
+          onError={this.checkImagesLoaded.bind(this)}
+        />
+      )
+    }
+    if (this.props.dropfile.mimetype.startsWith('text')) {
+      return (
+        <SyntaxHighlighter
+          name={this.props.dropfile.name}
+          url={this.props.dropfile.url}
+          mimetype={this.props.dropfile.mimetype}
+          onLoad={() => {
+            this.dropStore.dropfilePreviewLoaded(this.props.dropfile)
+          }}
+        />
+      )
+    }
+    return (
+      <DownloadRenderer
         name={this.props.dropfile.name}
         url={this.props.dropfile.url}
         mimetype={this.props.dropfile.mimetype}
         onLoad={() => {
           this.dropStore.dropfilePreviewLoaded(this.props.dropfile)
         }}
-      />
-    ) : (
-      <img
-        src={this.props.dropfile.url}
-        onLoad={this.checkImagesLoaded.bind(this)}
-        onError={this.checkImagesLoaded.bind(this)}
       />
     )
   }

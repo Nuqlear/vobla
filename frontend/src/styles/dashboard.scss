@@ -95,19 +95,20 @@
     }
   }
 
-  .image-container {
+  .img-container {
     position: relative;
     max-width: 150px;
     max-height: 100px;
     margin-bottom: 80px;
     overflow: hidden;
 
-    .image {
+    .img-thumbnail {
       -webkit-user-drag: none;
       -khtml-user-drag: none;
       -moz-user-drag: none;
       -o-user-drag: none;
       user-drag: none;
+      max-height: 100px;
     }
   }
 }

@@ -35,7 +35,7 @@ const GetApp = () => {
                 <div className="body text-center">
                   <h5>
                     {' '}
-                    Select an preferrable installation method to get started.{' '}
+                    Select a preferrable installation method to get started.{' '}
                   </h5>
                   <div className="list-group">
                     <a

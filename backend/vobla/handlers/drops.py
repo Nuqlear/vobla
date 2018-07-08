@@ -425,8 +425,13 @@ class DropUploadChunksHandler(BaseHandler):
               type: string
               required: true
             - in: header
-              name: 'Drop-File-Name'
+              name: 'Drop-Name'
               description: If not provided will be the same as Drop's Hash
+              type: string
+              required: false
+            - in: header
+              name: 'Drop-File-Name'
+              description: If not provided will be the same as DropFile's filename
               type: string
               required: false
             - in: header
@@ -488,7 +493,9 @@ class DropUploadChunksHandler(BaseHandler):
             drop_file = None
             if drop_file_hash is None:
                 if drop_hash is None:
-                    drop = await models.Drop.create(self.pgc, self.user, drop_file_name)
+                    drop = await models.Drop.create(
+                        self.pgc, self.user, headers.get("Drop-Name", None)
+                    )
                 else:
                     drop = await models.Drop.select(
                         self.pgc, models.Drop.c.id == models.Drop.decode(drop_hash)
@@ -584,8 +591,6 @@ class DropFileContentHandler(BaseHandler):
         description: Download a DropFile
         tags:
             - drops
-        produces:
-            - application/json
         parameters:
             - in: header
               name: 'Authorization'
@@ -609,6 +614,7 @@ class DropFileContentHandler(BaseHandler):
             raise errors.http.VoblaHTTPError(
                 404, "DropFile with such hash is not found."
             )
+        self.set_header("Content-Disposition", f': inline; filename="{dropfile.name}"')
         self.set_header("Content-Type", dropfile.mimetype)
         stream = dropfile.get_from_minio(self.application.minio).stream(32 * 1024)
         for stream_data in stream:

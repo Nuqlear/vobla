@@ -5,6 +5,23 @@
   right: 0;
   bottom: 0;
   padding: 5px;
+  flex-wrap: wrap /* padding: 5px; */;
+  display: inline-flex;
+  width: 100%;
+  // align-items: center;
+  justify-content: center;
+
+  .download-renderer {
+    padding: 10px;
+    & > .img-thumbnail {
+      max-height: 100px;
+    }
+  }
+
+  .syntax-highlighter {
+    width: 100%;
+    padding: 20px;
+  }
 
   img {
     padding: 5px;

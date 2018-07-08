@@ -76,7 +76,7 @@ class Drop(MinioMixin, Model):
     @classmethod
     async def create(cls, pgc, owner, name=None):
         async with pgc.begin():
-            obj = cls(name=name[:32], owner_id=owner.id)
+            obj = cls(name=name and name[:32], owner_id=owner.id)
             await obj.insert(pgc, [obj.c.created_at])
             obj.hash = "{}".format(obj.encode(obj.id))
             if name is None:
@@ -114,7 +114,7 @@ class DropFile(MinioMixin, Model):
     @classmethod
     async def create(cls, pgc, drop, name=None):
         async with pgc.begin():
-            obj = cls(name=name[:32], drop_id=drop.id)
+            obj = cls(name=name and name[:32], drop_id=drop.id)
             await obj.insert(pgc, [obj.c.created_at])
             obj.hash = "{}".format(obj.encode(obj.id))
             await obj.update(pgc)

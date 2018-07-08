@@ -26,8 +26,8 @@ export default class SyntaxHighlighter extends Component {
 
   render() {
     return (
-      <div>
-        <h4> {this.props.name} </h4>
+      <div className="syntax-highlighter">
+        {this.props.name}
         {this.state && this.state.text ? (
           <PrismSyntaxHighlighter
             style={light}

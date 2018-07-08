@@ -5,6 +5,7 @@ import { Route, Link, Redirect } from 'react-router-dom'
 import Moment from 'react-moment'
 import TiUpload from 'react-icons/lib/ti/upload'
 import TiArrowForward from 'react-icons/lib/ti/arrow-forward'
+import drop_icon from '../assets/drop.png'
 
 import Protected from './Protected'
 import Header from './Header'
@@ -47,20 +48,7 @@ class Dashboard extends Component {
   }
 
   getDropPreview(drop) {
-    return drop.preview_url || drop.dropfiles[0].url
-  }
-
-  checkImagesLoaded = () => {
-    this.previewIsLoading = true
-    const galleryElement = ReactDOM.findDOMNode(this)
-    const imgElements = galleryElement.querySelectorAll('img')
-    for (const img of imgElements) {
-      if (!img.complete) {
-        return false
-      }
-    }
-    this.previewIsLoading = false
-    // this.dropStore.previewLoaded();
+    return drop.preview_url || drop_icon
   }
 
   deleteAllDrops = async () => {
@@ -112,14 +100,14 @@ class Dashboard extends Component {
             {drops.map(function(drop) {
               return (
                 <Link to={`/d/${drop.hash}`} key={drop.hash} className="item">
-                  <div className="image-container">
+                  <div className="img-container">
                     <img
                       className="img-thumbnail"
                       src={self.getDropPreview(drop)}
                       width="100%"
                       alt=""
-                      onLoad={() => self.checkImagesLoaded()}
-                      onError={() => self.checkImagesLoaded()}
+                      onLoad={() => self.dropStore.dropPreviewLoaded(drop)}
+                      onError={() => self.dropStore.dropPreviewLoaded(drop)}
                     />
                   </div>
                   <div className="title">
