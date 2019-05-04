@@ -90,14 +90,12 @@ class Dashboard extends Component {
           {isLoading ? <Loader /> : null}
           <div
             className={
-              isLoading
-                ? 'dashboard-gallery-empty hidden'
-                : drops.length == 0
-                  ? 'dashboard-gallery-empty'
-                  : 'dashboard-gallery-items'
+              !isLoading && drops.length == 0
+                ? 'dashboard-gallery-empty'
+                : 'dashboard-gallery-items'
             }
           >
-            {drops.map(function(drop) {
+            {drops.map(function (drop) {
               return (
                 <Link to={`/d/${drop.hash}`} key={drop.hash} className="item">
                   <div className="img-container">
@@ -123,7 +121,7 @@ class Dashboard extends Component {
                 </Link>
               )
             })}
-            {drops.length == 0 ? (
+            {!isLoading && drops.length == 0 ? (
               <div>
                 <b>Ooops!</b>
                 <br />
