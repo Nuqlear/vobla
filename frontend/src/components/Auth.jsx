@@ -19,13 +19,13 @@ export default props => {
                 <div className="panel panel-default">
                   <div className="panel-body">{props.children}</div>
                 </div>
-                <h4
+                <p
                   className={
                     'auth-question ' + (props.question ? '' : 'hidden')
                   }
                 >
                   {props.question}
-                </h4>
+                </p>
               </div>
             </div>
           </div>

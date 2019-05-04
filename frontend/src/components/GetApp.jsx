@@ -33,10 +33,10 @@ const GetApp = () => {
                   <Link to="/">vobla</Link>
                 </div>
                 <div className="body text-center">
-                  <h5>
+                  <p>
                     {' '}
                     Select a preferrable installation method to get started.{' '}
-                  </h5>
+                  </p>
                   <div className="list-group">
                     <a
                       className="btn btn-default list-group-item"

@@ -49,14 +49,14 @@ class BaseModal extends Component {
         }}
       >
         <div className="modal-header">
-          <h5 className="modal-title">{this.props.title}</h5>
+          <p className="modal-title">{this.props.title}</p>
         </div>
         <div className="modal-body">
           {uploadProgress ? (
             <ProgressBar value={uploadProgress} />
           ) : (
-            <input type="file" onChange={this.handleFileChange} />
-          )}
+              <input type="file" onChange={this.handleFileChange} />
+            )}
         </div>
         {uploadProgress ? null : (
           <div className="modal-footer">
