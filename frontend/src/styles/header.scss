@@ -3,7 +3,6 @@ $navigation-offset: 10px;
 .navigation {
   .navbar {
     background: $primary-color;
-    height: 40px;
 
     .navbar-nav {
       // width: 100%;
@@ -47,6 +46,8 @@ $navigation-offset: 10px;
       position: relative;
       top: 5px;
       left: $navigation-offset;
+      margin-top: -20px;
+      margin-bottom: -20px;
     }
   }
 
