@@ -34,7 +34,8 @@ module.exports = {
           ],
           plugins: [
             'transform-async-to-generator',
-            'transform-decorators-legacy'
+            'transform-decorators-legacy',
+            'syntax-dynamic-import'
           ]
         },
         resolve: {

@@ -6,6 +6,7 @@ WORKDIR .
 COPY src/ /src/
 COPY dist/ /dist/
 COPY index.hbs /
+COPY package-lock.json /
 COPY package.json /
 COPY postcss.config.js /
 COPY webpack.config.js /
