@@ -38,4 +38,4 @@ for ind, pattern in enumerate(url_patterns):
     if pattern in api_url_patterns:
         url_patterns[ind][0] = r"/api" + url_patterns[ind][0]
     if getattr(pattern[1], "api_spec_exists", False):
-        api_spec.add_path(urlspec=pattern)
+        api_spec.path(urlspec=pattern)
