@@ -3,7 +3,6 @@ import json
 from itertools import count
 from io import BytesIO
 from datetime import datetime
-from datetime import timezone
 
 import requests
 from sqlalchemy import and_
@@ -36,7 +35,7 @@ class UserDropsHandlerTest(TestMixin):
             for attr in ("name", "hash"):
                 assert getattr(drop, attr) == drops[0][attr]
             assert (
-                drop.created_at.replace(tzinfo=timezone.utc).isoformat()
+                drop.created_at.replace(tzinfo=None).isoformat()
                 == drops[0]["created_at"]
             )
             assert "dropfiles" in drops[0]
@@ -54,9 +53,9 @@ class UserDropsHandlerTest(TestMixin):
             assert len(drops[0]["dropfiles"]) == 1
             for attr in ("name", "hash", "mimetype"):
                 assert getattr(dropfile2, attr, None) == drops[0]["dropfiles"][0][attr]
-            assert (
-                dropfile2.uploaded_at.replace(tzinfo=timezone.utc).isoformat()
-            ) == drops[0]["dropfiles"][0]["uploaded_at"]
+            assert (dropfile2.uploaded_at.replace(tzinfo=None).isoformat()) == drops[0][
+                "dropfiles"
+            ][0]["uploaded_at"]
 
     @gen_test
     async def test_GET_unauthorized(self):
@@ -99,7 +98,7 @@ class DropHandlerTest(TestMixin):
             for attr in ("name", "hash"):
                 assert getattr(drop, attr) == resp.body[attr]
             assert (
-                drop.created_at.replace(tzinfo=timezone.utc).isoformat()
+                drop.created_at.replace(tzinfo=None).isoformat()
                 == resp.body["created_at"]
             )
             assert "dropfiles" in resp.body
@@ -113,7 +112,7 @@ class DropHandlerTest(TestMixin):
             for attr in ("name", "hash", "mimetype"):
                 assert getattr(dropfile2, attr, None) == resp.body["dropfiles"][0][attr]
             assert (
-                dropfile2.uploaded_at.replace(tzinfo=timezone.utc).isoformat()
+                dropfile2.uploaded_at.replace(tzinfo=None).isoformat()
             ) == resp.body["dropfiles"][0]["uploaded_at"]
 
     @gen_test

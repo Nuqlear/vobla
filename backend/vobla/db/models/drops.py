@@ -56,7 +56,7 @@ class Drop(MinioMixin, Model):
             )
         self.owner = owner
         self.dropfiles = dropfiles
-        return self.serializer.dump(self, many=False).data
+        return self.serializer.dump(self, many=False)
 
     @classmethod
     async def fetch(cls, pgc, filter_):
@@ -67,7 +67,8 @@ class Drop(MinioMixin, Model):
                 drop.dropfiles = await DropFile.select(
                     pgc,
                     and_(
-                        DropFile.c.drop_id == drop.id, DropFile.c.uploaded_at.isnot(None)
+                        DropFile.c.drop_id == drop.id,
+                        DropFile.c.uploaded_at.isnot(None),
                     ),
                     return_list=True,
                 )

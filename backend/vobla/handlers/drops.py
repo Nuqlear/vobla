@@ -79,7 +79,9 @@ class UserDropsHandler(BaseHandler):
         if drops:
             next_cursor = utcnow2ms(drops[-1].created_at)
             cursor = await self.pgc.execute(
-                select([exists().where(models.Drop.c.created_at < drops[-1].created_at)])
+                select(
+                    [exists().where(models.Drop.c.created_at < drops[-1].created_at)]
+                )
             )
             next_cursor_exists = await cursor.scalar()
             if next_cursor_exists:
@@ -87,7 +89,7 @@ class UserDropsHandler(BaseHandler):
             else:
                 data_for_dump["next_cursor"] = -1
         self.set_status(200)
-        self.finish(UserDropsSchema().dump(data_for_dump).data)
+        self.finish(UserDropsSchema().dump(data_for_dump))
 
     @jwt_auth.jwt_needed
     async def delete(self):
@@ -108,7 +110,9 @@ class UserDropsHandler(BaseHandler):
                 description: Invalid/Missing authorization header
                 schema: ValidationErrorSchema
         """
-        drops = await models.Drop.fetch(self.pgc, models.Drop.c.owner_id == self.user.id)
+        drops = await models.Drop.fetch(
+            self.pgc, models.Drop.c.owner_id == self.user.id
+        )
         if drops:
             await models.Drop.delete(self.pgc, models.Drop.c.owner_id == self.user.id)
             self.application.minio.remove_objects(
@@ -262,7 +266,7 @@ class DropFileHandler(BaseHandler):
             self.set_status(404)
         else:
             self.set_status(200)
-            self.finish(dropfile.serializer.dump(dropfile).data)
+            self.finish(dropfile.serializer.dump(dropfile))
 
     @jwt_auth.jwt_needed
     async def delete(self, drop_file_hash):
@@ -388,7 +392,7 @@ class DropUploadBlobHandler(BaseHandler):
             self.write(
                 serializer.dump(
                     {"drop_file_hash": drop_file.hash, "drop_hash": drop.hash}
-                ).data
+                )
             )
         tasks.generate_previews.delay(drop.id)
         self.set_status(201)
@@ -576,7 +580,7 @@ class DropUploadChunksHandler(BaseHandler):
                 self.write(
                     serializer.dump(
                         {"drop_file_hash": drop_file.hash, "drop_hash": drop.hash}
-                    ).data
+                    )
                 )
         if progress >= 1:
             tasks.generate_previews.delay(drop.id)
