@@ -2,9 +2,7 @@ import React from 'react'
 import axios from 'axios'
 import { Link } from 'react-router-dom'
 
-import FaWindows from 'react-icons/lib/fa/windows'
-import FaLinux from 'react-icons/lib/fa/linux'
-import FaApple from 'react-icons/lib/fa/apple'
+import { FaWindows, FaLinux, FaApple} from 'react-icons/fa'
 
 const getSharex = () => {
   axios({

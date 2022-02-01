@@ -1,4 +1,4 @@
-import { observable, action, computed } from 'mobx'
+import { makeObservable, observable, action, computed } from 'mobx'
 import axios from 'axios'
 
 axios.interceptors.request.use(
@@ -22,6 +22,10 @@ export default class AuthStore {
   @observable message = undefined
 
   @observable user = undefined
+
+  constructor() {
+    makeObservable(this)
+  }
 
   @observable
   values = {
@@ -167,7 +171,9 @@ export default class AuthStore {
       if (response.status == 422) {
         let fields = response.data.error.fields
         for (let key in fields) {
-          this.values[key] = ''
+          if (key != "email") {
+            this.values[key] = ''
+          }
         }
         this.message = fields[Object.keys(fields)[0]]
       }

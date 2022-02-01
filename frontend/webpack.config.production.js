@@ -1,12 +1,12 @@
 var path = require('path');
 var webpack = require('webpack');
 var HtmlWebpackPlugin = require('html-webpack-plugin');
-var ExtractTextPlugin = require('extract-text-webpack-plugin');
+var MiniCssExtractPlugin = require("mini-css-extract-plugin");
 
 module.exports = {
   entry: {
     vendor: ['react', 'react-dom', 'react-router'],
-    app: ['babel-polyfill', './src/index.jsx']
+    app: ['@babel/polyfill', './src/index.jsx']
   },
   output: {
     path: path.join(__dirname, 'dist'),
@@ -21,21 +21,24 @@ module.exports = {
         test: /\.(js|jsx)$/,
         include: path.join(__dirname, 'src'),
         loader: 'babel-loader',
-        query: {
+        options: {
           presets: [
             [
-              'es2015',
+              '@babel/preset-env',
               {
                 modules: false
               }
             ],
-            'stage-0',
-            'react'
+            '@babel/preset-react'
           ],
           plugins: [
-            'transform-async-to-generator',
-            'transform-decorators-legacy',
-            'syntax-dynamic-import'
+            '@babel/plugin-transform-async-to-generator',
+            ['@babel/plugin-proposal-decorators',
+            {
+              "legacy": true
+            }],
+            '@babel/plugin-syntax-dynamic-import',
+            '@babel/plugin-proposal-function-bind',
           ]
         },
         resolve: {
@@ -43,24 +46,26 @@ module.exports = {
         }
       },
       {
-        test: /\.scss|css$/i,
-        use: ExtractTextPlugin.extract({
-          fallback: 'style-loader',
-          use: [
-            { loader: 'css-loader', options: { sourceMap: true } },
-            { loader: 'postcss-loader', options: { sourceMap: true, path: 'postcss.config.js' } },
-            { loader: 'resolve-url-loader' },
-            { loader: 'sass-loader', options: { sourceMap: true } }
-          ]
-        })
+        test: /\.scss|css$/,
+        use: [
+          { loader: 'style-loader'},
+          { loader: 'css-loader', options: { sourceMap: true } },
+          { loader: 'postcss-loader', options: { sourceMap: true, postcssOptions: {config: 'postcss.config.js'}}},
+          { loader: 'resolve-url-loader' },
+          { loader: 'sass-loader', options: { sourceMap: true } }
+        ]
       },
+      // {
+      //   test: /\.css$/i,
+      //   use: [MiniCssExtractPlugin.loader, "css-loader"],
+      // },
       {
         test: /\.(jpe?g|png|gif|svg)$/i,
         use: [
           'file-loader?hash=sha512&digest=hex&name=[hash].[ext]',
           {
             loader: 'image-webpack-loader',
-            query: {
+            options: {
               mozjpeg: {
                 progressive: true
               },
@@ -71,7 +76,7 @@ module.exports = {
                 optimizationLevel: 4
               },
               pngquant: {
-                quality: '75-90',
+                quality: [0.75, 0.90],
                 speed: 3
               }
             }
@@ -94,9 +99,7 @@ module.exports = {
         NODE_ENV: JSON.stringify('production')
       }
     }),
-    new webpack.NamedModulesPlugin(),
-    new webpack.optimize.OccurrenceOrderPlugin(true),
-    new ExtractTextPlugin('assets/styles.css'),
+    new MiniCssExtractPlugin(),
     new HtmlWebpackPlugin({
       hash: false,
       template: './index.hbs',

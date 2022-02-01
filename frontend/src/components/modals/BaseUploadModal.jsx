@@ -2,7 +2,7 @@ import React, { Component } from 'react'
 import ReactDOM from 'react-dom'
 import { inject, observer } from 'mobx-react'
 import { Redirect } from 'react-router-dom'
-import Modal from 'react-bootstrap4-modal'
+import {Modal, Button} from 'react-bootstrap'
 
 import ProgressBar from '../ProgressBar'
 
@@ -43,10 +43,9 @@ class BaseModal extends Component {
     const { uploadProgress } = this.store.dropStore
     return (
       <Modal
-        visible={visibility[this.props.name]}
-        onClickBackdrop={() => {
-          !uploadProgress && this.hide()
-        }}
+      show={visibility[this.props.name]}
+      backdrop={ !uploadProgress }
+      onHide={() => this.hide()}
       >
         <div className="modal-header">
           <p className="modal-title">{this.props.title}</p>

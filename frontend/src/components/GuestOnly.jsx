@@ -2,7 +2,7 @@ import React, { Component } from 'react'
 import { inject, observer } from 'mobx-react'
 import { Redirect } from 'react-router-dom'
 
-export default function GuestOnly(Component) {
+export default function GuestOnly(Component_) {
   @inject('store')
   class NonAuthenticatedComponent extends Component {
     constructor(props) {
@@ -15,7 +15,7 @@ export default function GuestOnly(Component) {
       return (
         <div>
           {inProgress ? null : !authenticated ? (
-            <Component {...this.props} />
+            <Component_ {...this.props} />
           ) : (
             <Redirect
               to={{

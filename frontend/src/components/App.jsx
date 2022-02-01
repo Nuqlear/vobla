@@ -1,5 +1,6 @@
 import React, { Component } from 'react'
-import Loadable from 'react-loadable'
+import PropTypes from "prop-types";
+import loadable from "@loadable/component";
 import {
   Route,
   Link,
@@ -21,10 +22,15 @@ const WrappedLoader = () => {
   )
 }
 
-@inject('store', 'routing')
+@inject('store')
 @withRouter
 @observer
 export default class App extends Component {
+  static propTypes = {
+    location: PropTypes.object.isRequired,
+    history: PropTypes.object.isRequired
+  };
+
   constructor(props) {
     super(props)
     this.store = this.props.store
@@ -35,38 +41,28 @@ export default class App extends Component {
   }
 
   render() {
-    const Signup = Loadable({
-      loader: () => import('./Signup'),
-      loading: () => {
-        return <WrappedLoader />
-      }
+    const Signup = loadable(
+      () => import('./Signup'), {
+        fallback: <WrappedLoader />
     })
-    const Login = Loadable({
-      loader: () => import('./Login'),
-      loading: () => {
-        return <WrappedLoader />
-      }
+    const Login = loadable(
+      () => import('./Login'), {
+        fallback: <WrappedLoader />
     })
-    const Dashboard = Loadable({
-      loader: () => import('./Dashboard'),
-      loading: () => {
-        return <WrappedLoader />
-      }
+    const Dashboard = loadable(
+      () => import('./Dashboard'), {
+        fallback: <WrappedLoader />
     })
-    const Drop = Loadable({
-      loader: () => import('./Drop'),
-      loading: () => {
-        return <WrappedLoader />
-      }
+    const Drop = loadable(
+      () => import('./Drop'), {
+        fallback: <WrappedLoader />
     })
-    const GetApp = Loadable({
-      loader: () => import('./GetApp'),
-      loading: () => {
-        return <WrappedLoader />
-      }
+    const GetApp = loadable(
+      () => import('./GetApp'), {
+        fallback: <WrappedLoader />
     })
     return (
-      <div location={this.props.routing.location}>
+      <div location={this.props.location}>
         <Switch>
           <Route exact path="/signup" component={Signup} />
           <Route exact path="/login" component={Login} />

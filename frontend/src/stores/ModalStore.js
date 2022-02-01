@@ -1,4 +1,4 @@
-import { observable, action, computed } from 'mobx'
+import { makeObservable, observable, action, computed } from 'mobx'
 import axios from 'axios'
 
 export default class ModalStore {
@@ -6,6 +6,10 @@ export default class ModalStore {
   visibility = {
     DropUpload: false,
     DropFileUpload: false
+  }
+
+  constructor() {
+    makeObservable(this)
   }
 
   @action

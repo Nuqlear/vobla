@@ -1,19 +1,25 @@
 import React, { Component } from 'react'
+import PropTypes from "prop-types";
 import ReactDOM from 'react-dom'
 import { inject, observer } from 'mobx-react'
-import { Route, Link, Redirect } from 'react-router-dom'
+import { Route, Link, Redirect, withRouter } from 'react-router-dom'
 import Moment from 'react-moment'
-import TiTrash from 'react-icons/lib/ti/trash'
-import TiUpload from 'react-icons/lib/ti/upload'
+import {TiTrash, TiUpload} from 'react-icons/ti'
 
 import Loader from './Loader'
 import Header from './Header'
 import DropFileUploadModal from './modals/DropFileUpload'
 import DropFileRenderer from './DropFileRenderer'
 
-@inject('store', 'routing')
+@inject('store')
+@withRouter
 @observer
 class Drop extends Component {
+  static propTypes = {
+    location: PropTypes.object.isRequired,
+    history: PropTypes.object.isRequired
+  };
+
   constructor(props) {
     super(props)
     this.dropHash = this.props.match.params.dropHash
@@ -52,7 +58,7 @@ class Drop extends Component {
 
   deleteDrop = async () => {
     await this.dropStore.deleteDrop()
-    this.props.routing.push('/')
+    this.props.history.push('/')
   }
 
   showModal = () => {

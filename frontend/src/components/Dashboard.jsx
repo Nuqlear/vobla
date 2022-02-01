@@ -3,8 +3,7 @@ import ReactDOM from 'react-dom'
 import { inject, observer } from 'mobx-react'
 import { Route, Link, Redirect } from 'react-router-dom'
 import Moment from 'react-moment'
-import TiUpload from 'react-icons/lib/ti/upload'
-import TiArrowForward from 'react-icons/lib/ti/arrow-forward'
+import { TiUpload, TiArrowForward } from 'react-icons/ti'
 import drop_icon from '../assets/drop.png'
 
 import Protected from './Protected'
@@ -12,9 +11,10 @@ import Header from './Header'
 import Loader from './Loader'
 import DropUploadModal from './modals/DropUpload'
 
-@inject('store', 'routing')
+@inject('store')
 @observer
 class Dashboard extends Component {
+
   constructor(props) {
     super(props)
     this.store = this.props.store

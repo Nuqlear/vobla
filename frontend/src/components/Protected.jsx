@@ -4,7 +4,7 @@ import { Redirect } from 'react-router-dom'
 
 import Header from './Header'
 
-export default function Protected(Component) {
+export default function Protected(Component_) {
   @inject('store')
   @observer
   class AuthenticatedComponent extends Component {
@@ -16,7 +16,7 @@ export default function Protected(Component) {
     render() {
       const { authenticated, inProgress } = this.store
       const wrapped = authenticated ? (
-        [<Component {...this.props} key="component" />]
+        [<Component_ {...this.props} key="component" />]
       ) : (
         <Redirect
           to={{

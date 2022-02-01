@@ -1,33 +1,43 @@
 const path = require('path');
 const webpack = require('webpack');
 const HtmlWebpackPlugin = require('html-webpack-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 
 module.exports = {
   entry: [
     'react-hot-loader/patch',
     'webpack-dev-server/client?http://0.0.0.0:3000',
     'webpack/hot/only-dev-server',
-    'babel-polyfill',
+    '@babel/polyfill',
     'whatwg-fetch',
     './src/index.jsx'
   ],
   devServer: {
     hot: true,
-    contentBase: path.resolve(__dirname, 'dist'),
     port: process.env.PORT || 3000,
     host: '0.0.0.0',
-    publicPath: '/',
+    static: [
+      {
+        directory: path.resolve(__dirname, 'dist'),
+        publicPath: '/',
+      },
+    ],
     historyApiFallback: true,
-    disableHostCheck: true,
     proxy: {
       '/api': {
-        target: 'http://backend:5000'
+        target: 'http://backend:5000',
+        secure: false,
+        changeOrigin: true
       },
       '/f/': {
-        target: 'http://backend:5000'
+        target: 'http://backend:5000',
+        secure: false,
+        changeOrigin: true
       },
       '/d/*/preview': {
-        target: 'http://backend:5000'
+        target: 'http://backend:5000',
+        secure: false,
+        changeOrigin: true
       }
     }
   },
@@ -46,18 +56,21 @@ module.exports = {
         options: {
           presets: [
             [
-              'es2015',
+              '@babel/preset-env',
               {
                 'modules': false
               }
             ],
-            'stage-0',
-            'react'
+            '@babel/preset-react'
           ],
           plugins: [
-            'transform-async-to-generator',
-            'transform-decorators-legacy',
-            'syntax-dynamic-import'
+            '@babel/plugin-transform-async-to-generator',
+            ['@babel/plugin-proposal-decorators',
+            {
+              "legacy": true
+            }],
+            '@babel/plugin-syntax-dynamic-import',
+            '@babel/plugin-proposal-function-bind',
           ]
         },
         resolve: {
@@ -67,10 +80,11 @@ module.exports = {
       {
         test: /\.scss|css$/,
         use: [
-          { loader: 'style-loader'},
-          { loader: 'css-loader', options: { sourceMap: true } },
-          { loader: 'postcss-loader', options: { sourceMap: true, path: 'postcss.config.js' } },
-          { loader: 'resolve-url-loader' },
+          MiniCssExtractPlugin.loader,
+          { loader: 'css-loader', options: { sourceMap: true, url: true} },
+          { loader: 'postcss-loader', options: {
+            sourceMap: true, postcssOptions: {config: 'postcss.config.js'}}},
+          { loader: 'resolve-url-loader', options: {sourceMap: true, debug: true} },
           { loader: 'sass-loader', options: { sourceMap: true } }
         ]
       },
@@ -80,7 +94,7 @@ module.exports = {
           'file-loader?hash=sha512&digest=hex&name=[hash].[ext]',
           {
             loader: 'image-webpack-loader',
-            query: {
+            options: {
               mozjpeg: {
                 progressive: true
               },
@@ -91,7 +105,7 @@ module.exports = {
                 optimizationLevel: 4
               },
               pngquant: {
-                quality: '75-90',
+                quality: [0.75, 0.90],
                 speed: 3
               }
             }
@@ -99,24 +113,24 @@ module.exports = {
         ]
       },
       {
-        test: /\.woff(2)?(\?v=[0-9]\.[0-9]\.[0-9])?$/,
-        use: 'url-loader?limit=10000&mimetype=application/font-woff'
+        test: /\.(woff|woff2|eot|ttf|otf)$/i,
+        type: 'asset/resource',
       },
-      {
-        test: /\.(ttf|eot|svg)(\?v=[0-9]\.[0-9]\.[0-9])?$/,
-        use: 'file-loader',
-        exclude: /images/,
-      }
     ]
   },
   plugins: [
-    new webpack.NamedModulesPlugin(),
     new webpack.HotModuleReplacementPlugin(),
+    new MiniCssExtractPlugin(),
     new HtmlWebpackPlugin({
       hash: false,
       template: './index.hbs',
       favicon: './src/assets/favicon.ico'
     }),
-    new webpack.ContextReplacementPlugin(/moment[\/\\]locale$/, /nb/)
-  ]
+    new webpack.ContextReplacementPlugin(/moment[\/\\]locale$/, /nb/),
+  ],
+  resolve: {
+      alias: {
+        'react-dom': '@hot-loader/react-dom'
+      }
+  }
 };

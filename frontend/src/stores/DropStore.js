@@ -1,4 +1,4 @@
-import { observable, action, computed } from 'mobx'
+import { makeObservable, observable, action, computed } from 'mobx'
 import axios from 'axios'
 
 export default class DropStore {
@@ -9,6 +9,10 @@ export default class DropStore {
   @observable cursor = undefined
   @observable uploadProgress = undefined
   chunkSize = 1048576
+
+  constructor() {
+    makeObservable(this)
+  }
 
   @action
   async loadDropFile(dropFileHash) {

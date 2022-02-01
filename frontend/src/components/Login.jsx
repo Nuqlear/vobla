@@ -15,7 +15,10 @@ class Login extends Component {
     this.authStore.reset()
   }
 
-  handleEmailChange = e => this.authStore.setEmail(e.target.value)
+  handleEmailChange = e => {
+    console.log(this.authStore.values.email);
+    this.authStore.setEmail(e.target.value)
+  }
   handlePasswordChange = e => this.authStore.setPassword(e.target.value)
   handleInviteCodeChange = e => this.authStore.setInviteCode(e.target.value)
   handleSubmit = async e => {
@@ -52,6 +55,8 @@ class Login extends Component {
             <input
               className="form-control"
               placeholder="Email address"
+              autoComplete="on"
+              autocompletetype="email"
               name="email"
               type="text"
               value={values.email}

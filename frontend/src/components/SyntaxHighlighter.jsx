@@ -1,6 +1,6 @@
 import React, { Component } from 'react'
-import PrismSyntaxHighlighter from 'react-syntax-highlighter/prism'
-import { light } from 'react-syntax-highlighter/styles/prism/base16-ateliersulphurpool.light'
+import { Prism as PrismSyntaxHighlighter } from 'react-syntax-highlighter';
+import light from 'react-syntax-highlighter/dist/esm/styles/prism/base16-ateliersulphurpool.light'
 import axios from 'axios'
 
 const detectLanguage = mimetype => {

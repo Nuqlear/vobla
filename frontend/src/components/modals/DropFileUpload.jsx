@@ -2,7 +2,6 @@ import React, { Component } from 'react'
 import ReactDOM from 'react-dom'
 import { inject, observer } from 'mobx-react'
 import { Redirect } from 'react-router-dom'
-import Modal from 'react-bootstrap4-modal'
 
 import ProgressBar from '../ProgressBar'
 import BaseUploadModal from './BaseUploadModal'

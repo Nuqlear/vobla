@@ -1,23 +1,31 @@
 import React, { Component } from 'react'
+import PropTypes from "prop-types";
 import ReactDOM from 'react-dom'
 import { inject, observer } from 'mobx-react'
-import { Redirect } from 'react-router-dom'
-import Modal from 'react-bootstrap4-modal'
+import { Redirect, withRouter, useHistory } from 'react-router-dom'
 
 import ProgressBar from '../ProgressBar'
 import BaseUploadModal from './BaseUploadModal'
 
-@inject('store', 'routing')
+@inject('store')
+@withRouter
 @observer
 class DropUpload extends Component {
+
+  static propTypes = {
+    location: PropTypes.object.isRequired,
+    history: PropTypes.object.isRequired
+  };
+
   constructor(props) {
     super(props)
+
     this.store = this.props.store
   }
 
   uploadDrop = async () => {
     const dropHash = await this.store.dropStore.uploadDrop(this.fileToUpload)
-    this.props.routing.push(`/d/${dropHash}`)
+    this.props.history.push(`/d/${dropHash}`)
   }
 
   handleFileToUploadChange = e => {
