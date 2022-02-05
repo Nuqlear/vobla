@@ -33,6 +33,9 @@ services:
     depends_on:
       - redis
       - minio
+  postgres:
+    ports:
+      - 5432:5432
   frontend:
     build: frontend
     command: npm run start:docker

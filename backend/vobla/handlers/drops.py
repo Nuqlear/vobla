@@ -5,8 +5,8 @@ from datetime import datetime
 from sqlalchemy import and_, select, desc, exists
 
 from vobla import errors, tasks
+from vobla.auth import jwt_needed
 from vobla.handlers import BaseHandler
-from vobla.utils import jwt_auth
 from vobla.utils import api_spec_exists
 from vobla.db import models
 from vobla.schemas.serializers.drops import (
@@ -21,7 +21,7 @@ def utcnow2ms(utcnow: datetime):
 
 @api_spec_exists
 class UserDropsHandler(BaseHandler):
-    @jwt_auth.jwt_needed
+    @jwt_needed
     async def get(self):
         """
         ---
@@ -91,7 +91,7 @@ class UserDropsHandler(BaseHandler):
         self.set_status(200)
         self.finish(UserDropsSchema().dump(data_for_dump))
 
-    @jwt_auth.jwt_needed
+    @jwt_needed
     async def delete(self):
         """
         ---
@@ -152,7 +152,7 @@ class DropHandler(BaseHandler):
         self.set_status(200)
         self.finish(data)
 
-    @jwt_auth.jwt_needed
+    @jwt_needed
     async def delete(self, drop_hash):
         """
         ---
@@ -266,7 +266,7 @@ class DropFileHandler(BaseHandler):
             self.set_status(200)
             self.finish(dropfile.serializer.dump(dropfile))
 
-    @jwt_auth.jwt_needed
+    @jwt_needed
     async def delete(self, drop_file_hash):
         """
         ---
@@ -327,7 +327,7 @@ class DropUploadBlobHandler(BaseHandler):
             ),
         )
 
-    @jwt_auth.jwt_needed
+    @jwt_needed
     async def post(self):
         """
         ---
@@ -410,7 +410,7 @@ class DropUploadChunksHandler(BaseHandler):
             ),
         )
 
-    @jwt_auth.jwt_needed
+    @jwt_needed
     async def post(self):
         """
         ---

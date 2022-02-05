@@ -1,10 +1,10 @@
 import psycopg2
 from webargs.tornadoparser import use_args
 
-from vobla.schemas import args
 from vobla import errors
+from vobla.auth import jwt_needed
+from vobla.schemas import args
 from vobla.handlers import BaseHandler
-from vobla.utils import jwt_auth
 from vobla.utils import api_spec_exists
 from vobla.db import models
 
@@ -54,14 +54,19 @@ class SignupHandler(BaseHandler):
                     email="Email does not look valid"
                 )
             invite_code = reqargs.pop("invite_code")
-            user = models.User(**reqargs)
-            user.hash_password(reqargs.pop("password"))
+            password = reqargs.pop("password")
+            user = models.User(
+                **reqargs,
+                password_hash=self.application.auth.hash_password(password),
+                active_session_hash=self.application.auth.generate_active_session_hash(),
+            )
             await models.UserInvite.delete(
                 self.pgc, models.UserInvite.c.code == invite_code
             )
             try:
                 await user.insert(self.pgc)
-                response = {"token": user.make_jwt()}
+                jwt = self.application.auth.make_user_jwt(user)
+                response = {"token": jwt}
                 self.set_status(201)
             except psycopg2.IntegrityError:
                 tr.rollback()
@@ -94,20 +99,27 @@ class LoginHandler(BaseHandler):
         user = await models.User.select(
             self.pgc, models.User.c.email == reqargs["email"]
         )
-        if not (user and user.verify_password(reqargs["password"])):
+        if not (
+            user
+            and self.application.auth.verify_password(
+                reqargs["password"],
+                user.password_hash,
+            )
+        ):
             raise errors.validation.VoblaValidationError(
                 email="Incorrect login/password", password="Invalid login/password"
             )
         else:
             self.set_status(202)
-            response = {"token": user.make_jwt()}
+            jwt = self.application.auth.make_user_jwt(user)
+            response = {"token": jwt}
             self.write(response)
             self.finish()
 
 
 @api_spec_exists
 class JWTCheckHandler(BaseHandler):
-    @jwt_auth.jwt_needed
+    @jwt_needed
     async def get(self):
         """
         ---

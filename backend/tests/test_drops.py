@@ -19,10 +19,14 @@ class UserDropsHandlerTest(TestMixin):
 
     @gen_test
     async def test_GET_valid_args(self):
-        user_data = {"email": "email", "password_hash": "pass"}
+        user_data = {
+            "email": "email",
+            "password_hash": "pass",
+            "active_session_hash": "active_session_hash",
+        }
         async with self._app.pg.acquire() as conn:
             u = await models.User.insert(conn, user_data)
-            token = u.make_jwt()
+            token = self.auth.make_user_jwt(u)
             drop = await models.Drop.create(conn, u)
             await models.DropFile.create(conn, drop)
             resp = await self.fetch_json(
@@ -64,10 +68,14 @@ class UserDropsHandlerTest(TestMixin):
 
     @gen_test
     async def test_DELETE_valid(self):
-        user_data = {"email": "email", "password_hash": "pass"}
+        user_data = {
+            "email": "email",
+            "password_hash": "pass",
+            "active_session_hash": "active_session_hash",
+        }
         async with self._app.pg.acquire() as conn:
             user = await models.User.insert(conn, user_data)
-            token = user.make_jwt()
+            token = self.auth.make_user_jwt(user)
             drop = await models.Drop.create(conn, user)
             await models.DropFile.create(conn, drop)
             resp = await self.fetch(
@@ -81,7 +89,11 @@ class UserDropsHandlerTest(TestMixin):
 
 
 async def _create_dropfile(conn):
-    user_data = {"email": "email", "password_hash": "pass"}
+    user_data = {
+        "email": "email",
+        "password_hash": "pass",
+        "active_session_hash": "active_session_hash",
+    }
     u = await models.User.insert(conn, user_data)
     drop = await models.Drop.create(conn, u)
     dropfile = await models.DropFile.create(conn, drop)
@@ -119,7 +131,7 @@ class DropHandlerTest(TestMixin):
     async def test_DELETE_valid(self):
         async with self._app.pg.acquire() as conn:
             user, drop, dropfile = await _create_dropfile(conn)
-            token = user.make_jwt()
+            token = self.auth.make_user_jwt(user)
             resp = await self.fetch(
                 f"/api/drops/files/{dropfile.hash}",
                 method="DELETE",
@@ -153,7 +165,7 @@ class DropFileHandler(TestMixin):
     async def test_DELETE_valid(self):
         async with self._app.pg.acquire() as conn:
             user, drop, dropfile = await _create_dropfile(conn)
-            token = user.make_jwt()
+            token = self.auth.make_user_jwt(user)
             resp = await self.fetch(
                 f"/api/drops/files/{dropfile.hash}",
                 method="DELETE",
@@ -260,10 +272,14 @@ class DropUploadChunksHandlerTest(TestMixin):
         """
         test DropFile upload by one and multiple chunks.
         """
-        data = {"email": "email", "password_hash": "pass"}
+        data = {
+            "email": "email",
+            "password_hash": "pass",
+            "active_session_hash": "active_session_hash",
+        }
         async with self._app.pg.acquire() as conn:
             u = await models.User.insert(conn, data)
-            token = u.make_jwt()
+            token = self.auth.make_user_jwt(u)
             drop = await models.Drop.create(conn, u)
             # 100000b should be enough to upload fixture file by one request
             chunk_sizes = [100, 100000]
@@ -292,7 +308,11 @@ class DropUploadChunksHandlerTest(TestMixin):
 
     @gen_test
     async def test_POST_invalid_hashes(self):
-        user_data = {"email": "email", "password_hash": "pass"}
+        user_data = {
+            "email": "email",
+            "password_hash": "pass",
+            "active_session_hash": "active_session_hash",
+        }
         async with self._app.pg.acquire() as conn:
             u = await models.User.insert(conn, user_data)
             drop = await models.Drop.create(conn, u)
@@ -300,7 +320,7 @@ class DropUploadChunksHandlerTest(TestMixin):
             data = os.urandom(100)
             user_data["email"] = "email2"
             u2 = await models.User.insert(conn, user_data)
-            u2_token = u2.make_jwt()
+            u2_token = self.auth.make_user_jwt(u2)
             # logic for first and next chunks has some differencies
             for chunk_number in [1, 2]:
                 # non-existing dropfile's hash
@@ -346,12 +366,16 @@ class DropUploadChunksHandlerTest(TestMixin):
 
     @gen_test
     async def test_POST_invalid_chunk_number(self):
-        user_data = {"email": "email", "password_hash": "pass"}
+        user_data = {
+            "email": "email",
+            "password_hash": "pass",
+            "active_session_hash": "active_session_hash",
+        }
         async with self._app.pg.acquire() as conn:
             u = await models.User.insert(conn, user_data)
             drop = await models.Drop.create(conn, u)
             dropfile = await models.DropFile.create(conn, drop)
-            token = u.make_jwt()
+            token = self.auth.make_user_jwt(u)
             resp = await self._upload_chunk(
                 os.urandom(100),
                 {
@@ -370,7 +394,11 @@ class DropUploadBlobHandlerTest(TestMixin):
     @gen_test
     async def test_POST_valid(self):
         async with self._app.pg.acquire() as conn:
-            user_data = {"email": "mail@mail.ru", "password_hash": "pass"}
+            user_data = {
+                "email": "mail@mail.ru",
+                "password_hash": "pass",
+                "active_session_hash": "active_session_hash",
+            }
             file_path = os.path.join(
                 os.path.dirname(__file__), "fixtures", "python-logo.png"
             )
@@ -380,10 +408,11 @@ class DropUploadBlobHandlerTest(TestMixin):
                 prepare = requests.Request(
                     url="http://localhost/img", files={"blob": (BytesIO(data))}, data={}
                 ).prepare()
+                jwt = self.auth.make_user_jwt(u)
                 response = await self.fetch(
                     "/api/drops/upload/blob",
                     headers={
-                        "Authorization": f"bearer {u.make_jwt()}",
+                        "Authorization": f"bearer {jwt}",
                         "Content-Type": prepare.headers.get("Content-Type"),
                     },
                     method="POST",
@@ -414,9 +443,13 @@ class SharexUploaderTest(TestMixin):
     @gen_test
     async def test_GET_valid(self):
         async with self._app.pg.acquire() as conn:
-            user_data = dict(email="mail@mail.ru", password_hash="pass")
+            user_data = {
+                "email": "mail@mail.ru",
+                "password_hash": "pass",
+                "active_session_hash": "active_session_hash",
+            }
             u = await models.User.insert(conn, user_data)
-            token = u.make_jwt()
+            token = self.auth.make_user_jwt(u)
         resp = await self.fetch(
             "/api/sharex", method="GET", headers={"Authorization": f"Bearer {token}"}
         )

@@ -41,6 +41,7 @@ class TestMixin(AsyncHTTPTestCase):
         super(TestMixin, self).setUp()
         self.pg = self._app.pg
         self.storage = self._app.storage
+        self.auth = self._app.auth
         asyncio.get_event_loop().run_until_complete(self.recreate_tables())
 
     def get_new_ioloop(self):

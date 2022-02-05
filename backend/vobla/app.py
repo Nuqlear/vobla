@@ -7,6 +7,7 @@ import tornado.ioloop
 from vobla.settings import config
 from vobla.urls import url_patterns
 from vobla.db.engine import create_engine
+from vobla.auth import VoblaAuth
 from vobla.storage import  get_storage
 
 
@@ -21,4 +22,5 @@ class TornadoApplication(tornado.web.Application):
             host=config["ssdb"]["host"], port=int(config["ssdb"]["port"])
         )
         self.storage = get_storage()
+        self.auth = VoblaAuth()
         tornado.web.Application.__init__(self, url_patterns, **config["tornado"])
