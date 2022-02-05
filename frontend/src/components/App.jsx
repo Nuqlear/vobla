@@ -13,6 +13,7 @@ import { inject, observer } from 'mobx-react'
 
 import Logout from './Logout'
 import Loader from './Loader'
+import ErrorModal from './modals/ErrorModal';
 
 const WrappedLoader = () => {
   return (

@@ -6,17 +6,22 @@ from alembic import context
 from sqlalchemy import create_engine
 
 
+
 sys.path.append(os.getcwd())
 from vobla.db import metadata as target_metadata
 config = context.config
-fileConfig(config.config_file_name)
+if config.attributes.get('configure_logger', True):
+    fileConfig(config.config_file_name)
 
 
 def get_url():
-    return "postgresql://%s:%s@postgres/%s" % (
-        os.getenv("POSTGRES_USER"),
-        os.getenv("POSTGRES_PASSWORD"),
-        os.getenv("POSTGRES_DB")
+    from vobla.settings import config
+
+    return "postgresql://%s:%s@%s/%s" % (
+        config['postgres']['user'],
+        config['postgres']['password'],
+        config['postgres']['host'],
+        config['postgres']['db'],
     )
 
 

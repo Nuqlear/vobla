@@ -10,6 +10,8 @@ services:
       - ./wait-for-postgres.sh:/wait-for-postgres.sh
     environment:
       - ENV=dev
+    ports:
+      - 5000:5000
   backend-worker:
     build: backend
     command: ["python", "manage.py", "runworker"]
@@ -31,9 +33,12 @@ services:
     depends_on:
       - redis
       - minio
+  postgres:
+    ports:
+      - 5432:5432
   frontend:
     build: frontend
-    command: npm run start
+    command: npm run start:docker
     volumes:
       - ./frontend/src:/src
       - ./frontend/yarn.lock:/yarn.lock

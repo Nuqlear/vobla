@@ -7,22 +7,21 @@ from vobla.db import metadata
 
 
 class ModelMeta(type):
-
     def __init__(cls, name, bases, nmspc):
         super(ModelMeta, cls).__init__(name, bases, nmspc)
-        if hasattr(cls, 'schema') is False:
-            raise Exception('You should declare the model\'s schema!')
-        table_name = getattr(cls, '__tablename__', name.lower())
+        if hasattr(cls, "schema") is False:
+            raise Exception("You should declare the model's schema!")
+        table_name = getattr(cls, "__tablename__", name.lower())
         cls.table = sa.Table(table_name, metadata, *cls.schema)
         cls.t = weakref.proxy(cls.table)
         cls.c = weakref.proxy(cls.table.c)
 
 
 class MultimethodDescriptor(object):
-    '''
+    """
     Descriptor which allows an usage of the
     same name for class and instance methods
-    '''
+    """
 
     def __init__(self, cls_m_name, inst_m_name):
         self.cls_m_name = cls_m_name
@@ -88,9 +87,7 @@ class Model(object, metaclass=ModelMeta):
     async def _instance_delete(self, pgc, query):
         await pgc.execute(self.t.delete().where(self.c.id == self.id))
 
-    delete = MultimethodDescriptor(
-        '_class_delete', '_instance_delete'
-    )
+    delete = MultimethodDescriptor("_class_delete", "_instance_delete")
 
     @classmethod
     async def select(cls, pgc, query, *ar, return_list=False):
@@ -134,16 +131,11 @@ class Model(object, metaclass=ModelMeta):
         res = await cursor.fetchone()
         self._update_from_row(res)
 
-    insert = MultimethodDescriptor(
-        '_class_insert', '_instance_insert'
-    )
+    insert = MultimethodDescriptor("_class_insert", "_instance_insert")
 
     @classmethod
     async def _class_update(cls, pgc, id, values, returning=None):
-        query = (
-            cls.t.update().where(cls.c.id == id)
-            .values(values)
-        )
+        query = cls.t.update().where(cls.c.id == id).values(values)
         if returning:
             returning.append(cls.c.id)
             query = query.returning(*returning)
@@ -157,16 +149,10 @@ class Model(object, metaclass=ModelMeta):
             for column in self.c.keys()
             if hasattr(self, column)
         }
-        query = (
-            self.t.update().where(
-                self.c.id == values.pop('id')
-            ).values(values)
-        )
+        query = self.t.update().where(self.c.id == values.pop("id")).values(values)
         if returning:
             returning.append(self.c.id)
             query = query.returning(*returning)
         await pgc.execute(query)
 
-    update = MultimethodDescriptor(
-        '_class_update', '_instance_update'
-    )
+    update = MultimethodDescriptor("_class_update", "_instance_update")

@@ -2,7 +2,6 @@ import os
 import json
 from itertools import count
 from io import BytesIO
-from datetime import datetime
 
 import requests
 from sqlalchemy import and_
@@ -11,20 +10,20 @@ from tornado.testing import gen_test
 from vobla.db import models
 from vobla import errors
 from tests import TestMixin
+from tests import factories
 
 
-class UserDropsHandlerTest(TestMixin):
+class TestGetDrops(TestMixin):
 
     url = "/api/drops"
 
     @gen_test
-    async def test_GET_valid_args(self):
-        user_data = {"email": "email", "password_hash": "pass"}
+    async def test_when_authenticated_then_drops_returned(self):
         async with self._app.pg.acquire() as conn:
-            u = await models.User.insert(conn, user_data)
-            token = u.make_jwt()
-            drop = await models.Drop.create(conn, u)
-            await models.DropFile.create(conn, drop)
+            u = await factories.UserFactory(conn=conn)
+            drop = await factories.DropFactory(conn=conn, owner_id=u.id)
+            await drop.update_hash(conn)
+            token = self.auth.make_user_jwt(u)
             resp = await self.fetch_json(
                 self.url, method="GET", headers={"Authorization": f"bearer {token}"}
             )
@@ -34,15 +33,9 @@ class UserDropsHandlerTest(TestMixin):
             assert len(drops) == 1
             for attr in ("name", "hash"):
                 assert getattr(drop, attr) == drops[0][attr]
-            assert (
-                drop.created_at.replace(tzinfo=None).isoformat()
-                == drops[0]["created_at"]
-            )
             assert "dropfiles" in drops[0]
             assert len(drops[0]["dropfiles"]) == 0
-            dropfile2 = await models.DropFile.create(conn, drop)
-            dropfile2.uploaded_at = datetime.utcnow()
-            await dropfile2.update(conn)
+            dropfile2 = await factories.DropFileFactory(conn=conn, drop_id=drop.id)
             resp = await self.fetch_json(
                 self.url, method="GET", headers={"Authorization": f"bearer {token}"}
             )
@@ -53,21 +46,22 @@ class UserDropsHandlerTest(TestMixin):
             assert len(drops[0]["dropfiles"]) == 1
             for attr in ("name", "hash", "mimetype"):
                 assert getattr(dropfile2, attr, None) == drops[0]["dropfiles"][0][attr]
-            assert (dropfile2.uploaded_at.replace(tzinfo=None).isoformat()) == drops[0][
-                "dropfiles"
-            ][0]["uploaded_at"]
 
     @gen_test
-    async def test_GET_unauthorized(self):
+    async def test_when_unauthenticated_then_401_returned(self):
         resp = await self.fetch_json(self.url, method="GET")
         self.assertValidationError(resp, "Authorization", 401)
 
+
+class TestDeleteDrops(TestMixin):
+
+    url = "/api/drops"
+
     @gen_test
-    async def test_DELETE_valid(self):
-        user_data = {"email": "email", "password_hash": "pass"}
+    async def test_when_user_authenticated_then_drops_deleted(self):
         async with self._app.pg.acquire() as conn:
-            user = await models.User.insert(conn, user_data)
-            token = user.make_jwt()
+            user = await factories.UserFactory(conn=conn)
+            token = self.auth.make_user_jwt(user)
             drop = await models.Drop.create(conn, user)
             await models.DropFile.create(conn, drop)
             resp = await self.fetch(
@@ -79,101 +73,53 @@ class UserDropsHandlerTest(TestMixin):
             )
             self.assertListEqual(drops, [])
 
+    @gen_test
+    async def test_when_unauthenticated_then_401_returned(self):
+        resp = await self.fetch(self.url, method="DELETE")
+        self.assertValidationError(resp, "Authorization", 401)
+
 
 async def _create_dropfile(conn):
-    user_data = {"email": "email", "password_hash": "pass"}
-    u = await models.User.insert(conn, user_data)
-    drop = await models.Drop.create(conn, u)
-    dropfile = await models.DropFile.create(conn, drop)
+    u = await factories.UserFactory(conn=conn)
+    drop = await factories.DropFactory(conn=conn, owner_id=u.id)
+    await drop.update_hash(conn)
+    dropfile = await factories.DropFileFactory(conn=conn, drop_id=drop.id)
+    await dropfile.update_hash(conn)
     return u, drop, dropfile
 
 
-class DropHandlerTest(TestMixin):
+class TestGetDrop(TestMixin):
     @gen_test
-    async def test_GET_valid(self):
+    async def test_when_user_authenticated_then_drop_returned(self):
         async with self._app.pg.acquire() as conn:
-            u, drop, dropfile = await _create_dropfile(conn)
-            resp = await self.fetch_json(f"/api/drops/{drop.hash}", method="GET")
-            assert resp.code == 200
-            for attr in ("name", "hash"):
-                assert getattr(drop, attr) == resp.body[attr]
-            assert (
-                drop.created_at.replace(tzinfo=None).isoformat()
-                == resp.body["created_at"]
-            )
-            assert "dropfiles" in resp.body
-            assert len(resp.body["dropfiles"]) == 0
-            dropfile2 = await models.DropFile.create(conn, drop)
-            dropfile2.uploaded_at = datetime.utcnow()
-            await dropfile2.update(conn)
-            resp = await self.fetch_json(f"/api/drops/{drop.hash}", method="GET")
-            assert "dropfiles" in resp.body
-            assert len(resp.body["dropfiles"]) == 1
-            for attr in ("name", "hash", "mimetype"):
-                assert getattr(dropfile2, attr, None) == resp.body["dropfiles"][0][attr]
-            assert (
-                dropfile2.uploaded_at.replace(tzinfo=None).isoformat()
-            ) == resp.body["dropfiles"][0]["uploaded_at"]
-
-    @gen_test
-    async def test_DELETE_valid(self):
-        async with self._app.pg.acquire() as conn:
-            user, drop, dropfile = await _create_dropfile(conn)
-            token = user.make_jwt()
-            resp = await self.fetch(
-                f"/api/drops/files/{dropfile.hash}",
-                method="DELETE",
-                headers={"Authorization": f"bearer {token}"},
-            )
-            assert resp.code == 200
-            dropfile = await models.DropFile.select(
-                conn, models.DropFile.c.id == dropfile.id
-            )
-            assert dropfile is None
-
-    @gen_test
-    async def test_DELETE_unauthorized(self):
-        async with self._app.pg.acquire() as conn:
-            _, drop, _ = await _create_dropfile(conn)
-        resp = await self.fetch_json(f"/api/drops/{drop.hash}", method="DELETE")
-        self.assertValidationError(resp, "Authorization", 401)
-
-
-class DropFileHandler(TestMixin):
-    @gen_test
-    async def test_DELETE_unauthorized(self):
-        async with self._app.pg.acquire() as conn:
-            _, _, dropfile = await _create_dropfile(conn)
-        resp = await self.fetch_json(
-            f"/api/drops/files/{dropfile.hash}", method="DELETE"
+            u = await factories.UserFactory(conn=conn)
+            drop = await factories.DropFactory(conn=conn, owner_id=u.id)
+            await drop.update_hash(conn)
+            dropfile = await factories.DropFileFactory(conn=conn, drop_id=drop.id)
+            await dropfile.update_hash(conn)
+        resp = await self.fetch_json(f"/api/drops/{drop.hash}", method="GET")
+        assert resp.code == 200
+        for attr in ("name", "hash"):
+            assert getattr(drop, attr) == resp.body[attr]
+        assert (
+            drop.created_at.replace(tzinfo=None).isoformat() == resp.body["created_at"]
         )
-        self.assertValidationError(resp, "Authorization", 401)
+        assert "dropfiles" in resp.body
+        assert len(resp.body["dropfiles"]) == 1
+        for attr in ("name", "hash", "mimetype"):
+            assert getattr(dropfile, attr, None) == resp.body["dropfiles"][0][attr]
 
-    @gen_test
-    async def test_DELETE_valid(self):
-        async with self._app.pg.acquire() as conn:
-            user, drop, dropfile = await _create_dropfile(conn)
-            token = user.make_jwt()
-            resp = await self.fetch(
-                f"/api/drops/files/{dropfile.hash}",
-                method="DELETE",
-                headers={"Authorization": f"bearer {token}"},
-            )
-            assert resp.code == 200
-            dropfile = await models.DropFile.select(
-                conn, models.DropFile.c.id == dropfile.id
-            )
-            assert dropfile is None
 
+class TestGetDropFile(TestMixin):
     @gen_test
-    async def test_GET_valid(self):
+    async def test_when_user_authenticated_then_dropfiles_deleted(self):
         async with self._app.pg.acquire() as conn:
             _, _, dropfile = await _create_dropfile(conn)
             resp = await self.fetch(f"/api/drops/files/{dropfile.hash}", method="GET")
             assert resp.code == 200
 
     @gen_test
-    async def test_GET_404(self):
+    async def test_when_dropfile_doesnt_exist_then_404_returned(self):
         async with self._app.pg.acquire() as conn:
             _, _, dropfile = await _create_dropfile(conn)
             resp = await self.fetch(
@@ -182,7 +128,32 @@ class DropFileHandler(TestMixin):
             assert resp.code == 404
 
 
-class DropUploadChunksHandlerTest(TestMixin):
+class TestDeleteDropFile(TestMixin):
+    @gen_test
+    async def test_when_user_authenticated_then_dropfiles_deleted(self):
+        async with self._app.pg.acquire() as conn:
+            user, _, dropfile = await _create_dropfile(conn)
+            token = self.auth.make_user_jwt(user)
+            resp = await self.fetch(
+                f"/api/drops/files/{dropfile.hash}",
+                method="DELETE",
+                headers={"Authorization": f"bearer {token}"},
+            )
+            assert resp.code == 200
+            dropfile = await models.DropFile.select(
+                conn, models.DropFile.c.id == dropfile.id
+            )
+            assert dropfile is None
+
+    @gen_test
+    async def test_when_user_unauthenticated_then_401_returned(self):
+        async with self._app.pg.acquire() as conn:
+            _, drop, _ = await _create_dropfile(conn)
+        resp = await self.fetch_json(f"/api/drops/{drop.hash}", method="DELETE")
+        self.assertValidationError(resp, "Authorization", 401)
+
+
+class TestDropUploadByChunks(TestMixin):
     async def _upload_chunk(self, data, headers):
         headers = {key: str(value) for key, value in headers.items()}
         prepare = requests.Request(
@@ -249,22 +220,22 @@ class DropUploadChunksHandlerTest(TestMixin):
         )
         assert drop_file is not None
         assert drop_file.mimetype == "image/png"
-        obj = drop_file.get_from_minio(self.minio)
+        obj = drop_file.get_from_storage(self.storage)
         assert obj is not None
         drop_file_data = obj.read()
         assert drop_file_data == data
         return drop_file
 
     @gen_test(timeout=120)
-    async def test_POST_full_valid_cycle(self):
+    async def test_when_user_authenticated_then_dropfile_uploaded(self):
         """
         test DropFile upload by one and multiple chunks.
         """
-        data = {"email": "email", "password_hash": "pass"}
         async with self._app.pg.acquire() as conn:
-            u = await models.User.insert(conn, data)
-            token = u.make_jwt()
-            drop = await models.Drop.create(conn, u)
+            u = await factories.UserFactory(conn=conn)
+            drop = await factories.DropFactory(conn=conn, owner_id=u.id)
+            await drop.update_hash(conn)
+            token = self.auth.make_user_jwt(u)
             # 100000b should be enough to upload fixture file by one request
             chunk_sizes = [100, 100000]
             for chunk_size in chunk_sizes:
@@ -277,7 +248,7 @@ class DropUploadChunksHandlerTest(TestMixin):
                 assert drop_file.drop_id == drop.id
 
     @gen_test
-    async def test_POST_invalid_token(self):
+    async def test_when_user_unauthenticated_then_401_returned(self):
         headers = {
             "Authorization": f"bearer asdasda",
             "Chunk-Number": 1,
@@ -291,16 +262,16 @@ class DropUploadChunksHandlerTest(TestMixin):
         )
 
     @gen_test
-    async def test_POST_invalid_hashes(self):
-        user_data = {"email": "email", "password_hash": "pass"}
+    async def test_when_drop_file_or_drop_hash_are_invalid_then_errors_returned(self):
         async with self._app.pg.acquire() as conn:
-            u = await models.User.insert(conn, user_data)
-            drop = await models.Drop.create(conn, u)
-            dropfile = await models.DropFile.create(conn, drop)
+            u = await factories.UserFactory(conn=conn)
+            drop = await factories.DropFactory(conn=conn, owner_id=u.id)
+            await drop.update_hash(conn)
+            dropfile = await factories.DropFileFactory(conn=conn, drop_id=drop.id)
+            await dropfile.update_hash(conn)
             data = os.urandom(100)
-            user_data["email"] = "email2"
-            u2 = await models.User.insert(conn, user_data)
-            u2_token = u2.make_jwt()
+            u2 = await factories.UserFactory(conn=conn)
+            u2_token = self.auth.make_user_jwt(u2)
             # logic for first and next chunks has some differencies
             for chunk_number in [1, 2]:
                 # non-existing dropfile's hash
@@ -345,13 +316,74 @@ class DropUploadChunksHandlerTest(TestMixin):
                 self.assertValidationError(resp, "Drop-File-Hash", 403)
 
     @gen_test
-    async def test_POST_invalid_chunk_number(self):
-        user_data = {"email": "email", "password_hash": "pass"}
+    async def test_when_dropfile_larger_than_limit_then_error_returned(self):
         async with self._app.pg.acquire() as conn:
-            u = await models.User.insert(conn, user_data)
-            drop = await models.Drop.create(conn, u)
-            dropfile = await models.DropFile.create(conn, drop)
-            token = u.make_jwt()
+            await factories.UserTierFactory(
+                conn=conn,
+                id=models.UserTierEnum.basic,
+                max_drop_file_size=31457280,
+            )
+            u = await factories.UserFactory(
+                conn=conn, user_tier_id=models.UserTierEnum.basic
+            )
+            u_token = self.auth.make_user_jwt(u)
+            drop = await factories.DropFactory(conn=conn, owner_id=u.id)
+            await drop.update_hash(conn)
+            data = os.urandom(1001)
+            headers = {
+                "Authorization": f"bearer {u_token}",
+                "Chunk-Number": 1,
+                "Chunk-Size": 31457281,
+                "File-Total-Size": 31457281,
+                "Drop-Hash": drop.hash,
+            }
+            resp = await self._upload_chunk(data, headers)
+            self.assertError(resp, "File exceeds account limit of 30 MB per upload", 400)
+
+    @gen_test
+    async def test_when_max_storage_larger_than_limit_then_error_returned(self):
+        async with self._app.pg.acquire() as conn:
+            await factories.UserTierFactory(
+                conn=conn,
+                id=models.UserTierEnum.basic,
+                max_storage_size=31457280,
+            )
+            u = await factories.UserFactory(
+                conn=conn, user_tier_id=models.UserTierEnum.basic
+            )
+            u_token = self.auth.make_user_jwt(u)
+            drop = await factories.DropFactory(conn=conn, owner_id=u.id)
+            await drop.update_hash(conn)
+            dropfile = await factories.DropFileFactory(
+                conn=conn, drop_id=drop.id, size=31457200
+            )
+            await dropfile.update_hash(conn)
+            drop2 = await factories.DropFactory(conn=conn, owner_id=u.id)
+            await drop2.update_hash(conn)
+            dropfile2 = await factories.DropFileFactory(conn=conn, drop_id=drop2.id)
+            await dropfile2.update_hash(conn)
+            data = os.urandom(81)
+            headers = {
+                "Authorization": f"bearer {u_token}",
+                "Chunk-Number": 1,
+                "Chunk-Size": 81,
+                "File-Total-Size": 81,
+                "Drop-Hash": models.Drop.encode(21231),
+            }
+            resp = await self._upload_chunk(data, headers)
+            self.assertError(
+                resp, "File exceeds account limit of 30 MB per account", 400
+            )
+
+    @gen_test
+    async def test_when_chunk_number_is_invalid_then_error_returned(self):
+        async with self._app.pg.acquire() as conn:
+            u = await factories.UserFactory(conn=conn)
+            drop = await factories.DropFactory(conn=conn, owner_id=u.id)
+            await drop.update_hash(conn)
+            dropfile = await factories.DropFileFactory(conn=conn, drop_id=drop.id)
+            await dropfile.update_hash(conn)
+            token = self.auth.make_user_jwt(u)
             resp = await self._upload_chunk(
                 os.urandom(100),
                 {
@@ -368,22 +400,22 @@ class DropUploadChunksHandlerTest(TestMixin):
 
 class DropUploadBlobHandlerTest(TestMixin):
     @gen_test
-    async def test_POST_valid(self):
+    async def test_when_user_authenticated_then_dropfile_created(self):
         async with self._app.pg.acquire() as conn:
-            user_data = {"email": "mail@mail.ru", "password_hash": "pass"}
             file_path = os.path.join(
                 os.path.dirname(__file__), "fixtures", "python-logo.png"
             )
             with open(file_path, "rb") as f:
                 data = f.read()
-                u = await models.User.insert(conn, user_data)
+                u = await factories.UserFactory(conn=conn)
                 prepare = requests.Request(
                     url="http://localhost/img", files={"blob": (BytesIO(data))}, data={}
                 ).prepare()
+                jwt = self.auth.make_user_jwt(u)
                 response = await self.fetch(
                     "/api/drops/upload/blob",
                     headers={
-                        "Authorization": f"bearer {u.make_jwt()}",
+                        "Authorization": f"bearer {jwt}",
                         "Content-Type": prepare.headers.get("Content-Type"),
                     },
                     method="POST",
@@ -404,19 +436,41 @@ class DropUploadBlobHandlerTest(TestMixin):
                 )
                 assert drop_file is not None
                 assert drop_file.mimetype == "image/png"
-                obj = drop_file.get_from_minio(self.minio)
+                obj = drop_file.get_from_storage(self.storage)
                 assert obj is not None
                 drop_file_data = obj.read()
                 assert drop_file_data == data
 
-
-class SharexUploaderTest(TestMixin):
     @gen_test
-    async def test_GET_valid(self):
+    async def test_when_user_unauthenticated_then_401_returned(self):
+        file_path = os.path.join(
+            os.path.dirname(__file__), "fixtures", "python-logo.png"
+        )
+        with open(file_path, "rb") as f:
+            data = f.read()
+            prepare = requests.Request(
+                url="http://localhost/img", files={"blob": (BytesIO(data))}, data={}
+            ).prepare()
+            response = await self.fetch(
+                "/api/drops/upload/blob",
+                headers={
+                    "Authorization": "bearer blablae",
+                    "Content-Type": prepare.headers.get("Content-Type"),
+                },
+                method="POST",
+                body=prepare.body,
+            )
+        self.assertValidationError(
+            response, "Authorization", errors.validation.VoblaJWTAuthError.code
+        )
+
+
+class TestSharexUploader(TestMixin):
+    @gen_test
+    async def test_when_user_authenticated_then_sharex_data_returned(self):
         async with self._app.pg.acquire() as conn:
-            user_data = dict(email="mail@mail.ru", password_hash="pass")
-            u = await models.User.insert(conn, user_data)
-            token = u.make_jwt()
+            u = await factories.UserFactory(conn=conn)
+            token = self.auth.make_user_jwt(u)
         resp = await self.fetch(
             "/api/sharex", method="GET", headers={"Authorization": f"Bearer {token}"}
         )
@@ -431,6 +485,6 @@ class SharexUploaderTest(TestMixin):
         }
 
     @gen_test
-    async def test_GET_401(self):
+    async def test_when_user_unauthenticated_then_401_returned(self):
         resp = await self.fetch("/api/sharex", method="GET")
         assert resp.code == 401

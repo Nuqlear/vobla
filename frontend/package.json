@@ -7,6 +7,8 @@
   },
   "scripts": {
     "start": "cross-env NODE_ENV=development webpack-dev-server --config webpack.config.js --mode development",
+    "start:docker": "cross-env NODE_ENV=development-docker webpack-dev-server --config webpack.config.js --mode development",
+    "start:prod": "cross-env NODE_ENV=development-prod webpack-dev-server --config webpack.config.js --mode development",
     "build": "cross-env NODE_ENV=production rimraf ./dist/* && webpack --config webpack.config.production.js --mode production",
     "postinstall": "webpack --config ./webpack.config.production.js",
     "preview": "cross-env NODE_ENV=preview http-server ./dist -p 1234 -c-1"

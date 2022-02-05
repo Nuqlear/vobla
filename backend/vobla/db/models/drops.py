@@ -1,5 +1,6 @@
 import datetime
 import os
+import io
 
 import magic
 import sqlalchemy as sa
@@ -10,17 +11,18 @@ from vobla.db.orm import Model
 from vobla.db.models.users import User
 from vobla.schemas import serializers
 from vobla.settings import config
+from vobla.storage import VoblaStorage
 
 
 hashids = Hashids(salt=config["tornado"]["secret_key"], min_length=16)
 
 
-class MinioMixin:
-    def get_from_minio(self, minio):
-        return minio.get_object(self.bucket, self.hash)
+class StorageMixin:
+    def get_from_storage(self, storage: VoblaStorage) -> io.BytesIO:
+        return storage.get_object(self.bucket, self.hash)
 
 
-class Drop(MinioMixin, Model):
+class Drop(StorageMixin, Model):
     __tablename__ = "drop"
     schema = [
         sa.Column("id", sa.Integer, primary_key=True),
@@ -79,14 +81,17 @@ class Drop(MinioMixin, Model):
         async with pgc.begin():
             obj = cls(name=name and name[:32], owner_id=owner.id)
             await obj.insert(pgc, [obj.c.created_at])
-            obj.hash = "{}".format(obj.encode(obj.id))
-            if name is None:
-                obj.name = obj.hash
-            await obj.update(pgc)
+            await obj.update_hash(pgc)
             return obj
 
+    async def update_hash(self, pgc):
+        self.hash = "{}".format(self.encode(self.id))
+        if self.name is None:
+            self.name = self.hash
+        await self.update(pgc)
 
-class DropFile(MinioMixin, Model):
+
+class DropFile(StorageMixin, Model):
     __tablename__ = "drop_file"
     schema = [
         sa.Column("id", sa.Integer, primary_key=True),
@@ -98,6 +103,7 @@ class DropFile(MinioMixin, Model):
         ),
         sa.Column("hash", sa.String(16)),
         sa.Column("mimetype", sa.String(32)),
+        sa.Column("size", sa.Integer),
         sa.Column("created_at", sa.DateTime, default=datetime.datetime.utcnow),
         sa.Column("uploaded_at", sa.DateTime, nullable=True),
     ]
@@ -113,13 +119,27 @@ class DropFile(MinioMixin, Model):
         return hashids.decode(hash_)[0]
 
     @classmethod
-    async def create(cls, pgc, drop, name=None):
+    async def create(
+        cls,
+        pgc,
+        drop,
+        *,
+        size: int = 0,
+        name: str = None,
+    ):
         async with pgc.begin():
-            obj = cls(name=name and name[:32], drop_id=drop.id)
+            obj = cls(
+                name=name and name[:32],
+                size=size,
+                drop_id=drop.id,
+            )
             await obj.insert(pgc, [obj.c.created_at])
-            obj.hash = "{}".format(obj.encode(obj.id))
-            await obj.update(pgc)
+            await obj.update_hash(pgc)
             return obj
+
+    async def update_hash(self, pgc):
+        self.hash = "{}".format(self.encode(self.id))
+        await self.update(pgc)
 
     def set_mimetype(self, buffer, filename: str = None):
         mimetype = magic.from_buffer(buffer, mime=True)

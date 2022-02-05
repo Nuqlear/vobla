@@ -1,9 +1,10 @@
 #!/usr/bin/env python
+import logging
 import argparse
 import sys
 
 import alembic.config
-from celery.bin import worker
+import alembic.command
 import pytest
 import tornado.platform
 import tornado.httpserver
@@ -13,10 +14,9 @@ import tornado.web
 from vobla.settings import config
 from vobla.app import TornadoApplication
 from vobla.tasks import celery_app
-from vobla.db.engine import create_engine
-from vobla.db.models import UserInvite
 
 
+logging.basicConfig(level=logging.INFO)
 TESTS_FOLDER = "tests"
 
 
@@ -29,29 +29,18 @@ def run_server():
 
 
 def run_migrations():
-    alembic_args = ["--raiseerr", "upgrade", "head"]
-    alembic.config.main(argv=alembic_args)
+    config = alembic.config.Config("alembic.ini")
+    config.attributes["configure_logger"] = False
+    alembic.command.upgrade(config, "head")
 
 
 def run_tests():
     sys.exit(pytest.main(["-vv", "-s", TESTS_FOLDER]))
 
 
-def create_invite():
-    tornado.platform.asyncio.AsyncIOMainLoop().install()
-    loop = tornado.ioloop.IOLoop.current().asyncio_loop
-
-    async def _create_invite():
-        eng = await create_engine(loop)
-        async with eng.acquire() as pgc:
-            ui = await UserInvite.create(pgc)
-            print(ui.code)
-
-    loop.run_until_complete(_create_invite())
-
-
 def run_worker():
-    worker.worker(app=celery_app).run(**config["celery"])
+    worker = celery_app.Worker(include=["vobla.tasks"])
+    worker.start()
 
 
 if __name__ == "__main__":
@@ -67,8 +56,6 @@ if __name__ == "__main__":
         run_migrations()
     if args.command == "runserver":
         run_server()
-    elif args.command == "createinv":
-        create_invite()
     elif args.command == "runtests":
         run_tests()
     elif args.command == "runworker":

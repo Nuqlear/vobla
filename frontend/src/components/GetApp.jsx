@@ -49,9 +49,7 @@ const GetApp = () => {
                     >
                       <FaWindows size={28} color="cornflowerblue" />
                       <span className="text">
-                        Vobla App Installer &nbsp;<span className="warn">
-                          warn you: its barebone!
-                        </span>
+                        Vobla App Installer
                       </span>
                     </a>
                     <a

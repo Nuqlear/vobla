@@ -1,73 +1,45 @@
-import random
+import datetime
+import enum
 
-import psycopg2
-import jwt
 import sqlalchemy as sa
-from passlib.hash import pbkdf2_sha256
+from sqlalchemy_utils import ChoiceType
 
-from vobla.settings import config
 from vobla.db.orm import Model
+from vobla.settings import config
 
 
-JWT_ALGORITHM = 'HS256'
+class UserTierEnum(enum.Enum):
+    basic = 'basic'
+    super_ = 'super'
+
+    @classmethod
+    def default(cls):
+        return getattr(cls, config["vobla"]["default_user_tier"])
+
+
+class UserTier(Model):
+    __tablename__ = "user_tier"
+    schema = [
+        sa.Column("id", ChoiceType(UserTierEnum), primary_key=True),
+        sa.Column("name", sa.String(60), nullable=False, unique=True),
+        sa.Column("max_drop_file_size", sa.Integer, nullable=True),
+        sa.Column("max_storage_size", sa.Integer, nullable=True),
+        sa.Column("created_at", sa.DateTime, default=datetime.datetime.utcnow),
+        sa.Column("updated_at", sa.DateTime, default=datetime.datetime.utcnow),
+    ]
 
 
 class User(Model):
-    __tablename__ = 'user'
+    __tablename__ = "user"
     schema = [
-        sa.Column('id', sa.Integer, primary_key=True),
-        sa.Column('email', sa.String(60), nullable=False, unique=True),
-        sa.Column('password_hash', sa.String(87), nullable=False)
+        sa.Column("id", sa.Integer, primary_key=True),
+        sa.Column("email", sa.String(60), nullable=False, unique=True),
+        sa.Column("password_hash", sa.String(87), nullable=False),
+        sa.Column("active_session_hash", sa.String(87), nullable=False),
+        sa.Column(
+            "user_tier_id",
+            ChoiceType(UserTierEnum),
+            sa.ForeignKey("user_tier.id", onupdate="CASCADE", ondelete="CASCADE"),
+            nullable=False,
+        ),
     ]
-    _hash_fn = pbkdf2_sha256
-
-    def verify_password(self, password):
-        return self._hash_fn.verify(
-            password, self.password_hash
-        )
-
-    def hash_password(self, password):
-        self.password_hash = self._hash_fn.hash(password)
-
-    @classmethod
-    async def verify_jwt(cls, pgc, token):
-        try:
-            data = jwt.decode(
-                token,
-                config['tornado']['secret_key'],
-                algorithms=[JWT_ALGORITHM]
-            )
-            if 'email' in data:
-                obj = await cls.select(pgc, cls.c.email == data['email'])
-                if obj:
-                    return obj
-        except jwt.exceptions.DecodeError:
-            pass
-        return None
-
-    def make_jwt(self):
-        return (
-            jwt.encode(
-                dict(email=self.email),
-                config['tornado']['secret_key'],
-                algorithm=JWT_ALGORITHM
-            ).decode('ascii')
-        )
-
-
-class UserInvite(Model):
-    __tablename__ = 'user_invite'
-    schema = [
-        sa.Column('code', sa.String(8), nullable=False, primary_key=True)
-    ]
-
-    @staticmethod
-    async def create(pgc):
-        r = random.SystemRandom()
-        while True:
-            code = ''.join(r.choice('0123456789ABCDEF') for i in range(6))
-            try:
-                ui = await UserInvite.insert(pgc, dict(code=code))
-            except psycopg2.IntegrityError:
-                continue
-            return ui

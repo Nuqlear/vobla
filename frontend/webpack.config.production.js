@@ -6,7 +6,7 @@ var MiniCssExtractPlugin = require("mini-css-extract-plugin");
 module.exports = {
   entry: {
     vendor: ['react', 'react-dom', 'react-router'],
-    app: ['@babel/polyfill', './src/index.jsx']
+    app: ['@babel/polyfill', 'whatwg-fetch', './src/index.jsx']
   },
   output: {
     path: path.join(__dirname, 'dist'),
@@ -48,10 +48,11 @@ module.exports = {
       {
         test: /\.scss|css$/,
         use: [
-          { loader: 'style-loader'},
-          { loader: 'css-loader', options: { sourceMap: true } },
-          { loader: 'postcss-loader', options: { sourceMap: true, postcssOptions: {config: 'postcss.config.js'}}},
-          { loader: 'resolve-url-loader' },
+          MiniCssExtractPlugin.loader,
+          { loader: 'css-loader', options: { sourceMap: true, url: true} },
+          { loader: 'postcss-loader', options: {
+            sourceMap: true, postcssOptions: {config: 'postcss.config.js'}}},
+          { loader: 'resolve-url-loader', options: {sourceMap: true, debug: true} },
           { loader: 'sass-loader', options: { sourceMap: true } }
         ]
       },
@@ -84,13 +85,9 @@ module.exports = {
         ]
       },
       {
-        test: /\.woff(2)?(\?v=[0-9]\.[0-9]\.[0-9])?$/,
-        use: 'url-loader?limit=10000&mimetype=application/font-woff'
+        test: /\.(woff|woff2|eot|ttf|otf)$/i,
+        type: 'asset/resource',
       },
-      {
-        test: /\.(ttf|eot|svg)(\?v=[0-9]\.[0-9]\.[0-9])?$/,
-        use: 'file-loader'
-      }
     ]
   },
   plugins: [

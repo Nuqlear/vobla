@@ -5,11 +5,11 @@ from vobla.settings import config
 
 def get_engine_params():
     return dict(
-        host=config['postgres']['host'],
-        port=config['postgres']['port'],
-        database=config['postgres']['db'],
-        user=config['postgres']['user'],
-        password=config['postgres']['password'],
+        host=config["postgres"]["host"],
+        port=config["postgres"]["port"],
+        database=config["postgres"]["db"],
+        user=config["postgres"]["user"],
+        password=config["postgres"]["password"],
     )
 
 

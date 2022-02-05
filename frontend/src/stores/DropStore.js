@@ -1,5 +1,5 @@
 import { makeObservable, observable, action, computed } from 'mobx'
-import axios from 'axios'
+import { axios } from '../utils/ApiClient'
 
 export default class DropStore {
   @observable drops = []

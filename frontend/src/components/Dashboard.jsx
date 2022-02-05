@@ -10,6 +10,7 @@ import Protected from './Protected'
 import Header from './Header'
 import Loader from './Loader'
 import DropUploadModal from './modals/DropUpload'
+import ErrorModal from './modals/ErrorModal';
 
 @inject('store')
 @observer
@@ -80,6 +81,7 @@ class Dashboard extends Component {
     ]
     return (
       <div>
+        <ErrorModal />
         <DropUploadModal />
         <Header
           navbarLeft={navbarLeft}

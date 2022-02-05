@@ -11,6 +11,7 @@ from tornado.testing import AsyncHTTPTestCase
 
 from vobla.app import TornadoApplication
 from vobla.db import metadata
+from tests.factories import UserTierFactory
 
 
 @compiles(DropTable, "postgresql")
@@ -19,6 +20,10 @@ def _compile_drop_table(element, compiler, **kwargs):
 
 
 class TestMixin(AsyncHTTPTestCase):
+
+    async def create_default_user_type(self):
+        async with self.pg.acquire() as conn:
+            await UserTierFactory.create_default(conn=conn)
 
     async def recreate_tables(self):
         async with self.pg.acquire() as conn:
@@ -40,8 +45,10 @@ class TestMixin(AsyncHTTPTestCase):
     def setUp(self):
         super(TestMixin, self).setUp()
         self.pg = self._app.pg
-        self.minio = self._app.minio
+        self.storage = self._app.storage
+        self.auth = self._app.auth
         asyncio.get_event_loop().run_until_complete(self.recreate_tables())
+        asyncio.get_event_loop().run_until_complete(self.create_default_user_type())
 
     def get_new_ioloop(self):
         io_loop = tornado.platform.asyncio.AsyncIOLoop()
@@ -70,12 +77,24 @@ class TestMixin(AsyncHTTPTestCase):
         return resp
 
     @staticmethod
+    def assertError(resp, message, code=400):
+        assert resp.code == code
+        body = resp.body
+        if isinstance(body, bytes):
+            body = json.loads(body)
+        assert 'error' in body
+        assert body["error"]["message"] == message
+
+    @staticmethod
     def assertValidationError(resp, nonvalidated_fields, code=422):
         assert resp.code == code
-        assert 'error' in resp.body
-        assert 'fields' in resp.body['error']
+        body = resp.body
+        if isinstance(body, bytes):
+            body = json.loads(body)
+        assert 'error' in body
+        assert 'fields' in body['error']
         if isinstance(nonvalidated_fields, list):
             for field in nonvalidated_fields:
-                assert field in resp.body['error']['fields']
+                assert field in body['error']['fields']
         else:
-            assert nonvalidated_fields in resp.body['error']['fields']
+            assert nonvalidated_fields in body['error']['fields']

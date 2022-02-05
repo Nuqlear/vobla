@@ -5,8 +5,5 @@ from vobla.utils import api_spec
 
 
 class OpenAPI2(BaseHandler):
-
     def get(self):
-        return self.write(
-            json.dumps(api_spec.to_dict())
-        )
+        return self.write(json.dumps(api_spec.to_dict()))

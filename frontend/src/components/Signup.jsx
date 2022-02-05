@@ -20,7 +20,6 @@ class Signup extends Component {
   handlePasswordChange = e => this.authStore.setPassword(e.target.value)
   handlePasswordConfirmChange = e =>
     this.authStore.setPasswordConfirm(e.target.value)
-  handleInviteCodeChange = e => this.authStore.setInviteCode(e.target.value)
   handleSubmit = async e => {
     e.preventDefault()
     await this.authStore.signup()
@@ -43,8 +42,8 @@ class Signup extends Component {
 
     return (
       <Auth message={message} isProgress={inProgress} question={question}>
-        {this.authStore.authenticated &&
-          !this.authStore.inProgress && <Redirect to="/" />}
+        {authenticated &&
+          !inProgress && <Redirect to="/" />}
         <form
           acceptCharset="UTF-8"
           role="form"
@@ -52,15 +51,6 @@ class Signup extends Component {
           onSubmit={this.handleSubmit}
         >
           <fieldset className={inProgress ? 'op9' : ''}>
-            <input
-              className="form-control"
-              placeholder="Invite code"
-              name="invite"
-              type="text"
-              value={values.invite_code}
-              onChange={this.handleInviteCodeChange}
-              disabled={inProgress}
-            />
             <input
               className="form-control"
               placeholder="Email address"
@@ -96,7 +86,6 @@ class Signup extends Component {
                 inProgress ||
                 message ||
                 !(
-                  values.invite_code &&
                   values.email &&
                   values.password &&
                   values.password_confirm

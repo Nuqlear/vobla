@@ -37,3 +37,4 @@ __pycache__
 volumes
 frontend/dist/*
 !.gitkeep
+backend/venv
