@@ -4,6 +4,7 @@ from tornado.testing import gen_test
 from vobla.db import models
 from vobla import errors
 from tests import TestMixin
+from tests import factories
 
 
 class SignupTest(TestMixin):
@@ -40,14 +41,15 @@ class SignupTest(TestMixin):
 
     @gen_test
     async def test_already_registered(self):
+        async with self._app.pg.acquire() as conn:
+            await factories.UserFactory(
+                conn=conn,
+                email="mail@mail.ru",
+            )
         data = {
             "email": "mail@mail.ru",
-            "password_hash": "pass",
-            "active_session_hash": "active_session_hash",
+            "password": "pass",
         }
-        async with self._app.pg.acquire() as conn:
-            await models.User.insert(conn, data)
-        data["password"] = data.pop("password_hash")
         resp = await self._test_case(data, errors.validation.VoblaValidationError.code)
         assert "token" not in resp.body
 
@@ -84,13 +86,10 @@ class LoginTest(TestMixin):
     async def test_valid_data(self):
         data = {"email": "mail@mail.ru", "password": "pass"}
         async with self._app.pg.acquire() as conn:
-            await models.User.insert(
-                conn,
-                {
-                    "email": data["email"],
-                    "password_hash": pbkdf2_sha256.hash(data["password"]),
-                    "active_session_hash": "active_session_hash",
-                },
+            await factories.UserFactory(
+                conn=conn,
+                email=data["email"],
+                password_hash=pbkdf2_sha256.hash(data["password"]),
             )
         resp = await self._test_case(data, 202)
         assert "token" in resp.body
@@ -106,13 +105,10 @@ class JWTCheckTest(TestMixin):
     async def test_headers(self):
         data = {"email": "mail@mail.ru", "password": "pass"}
         async with self._app.pg.acquire() as conn:
-            user = await models.User.insert(
-                conn,
-                {
-                    "email": data["email"],
-                    "password_hash": pbkdf2_sha256.hash(data["password"]),
-                    "active_session_hash": "active_session_hash",
-                },
+            user = await factories.UserFactory(
+                conn=conn,
+                email=data["email"],
+                password_hash=pbkdf2_sha256.hash(data["password"]),
             )
             jwt = self.auth.make_user_jwt(user)
         for token, code in [

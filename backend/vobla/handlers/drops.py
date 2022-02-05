@@ -117,7 +117,7 @@ class UserDropsHandler(BaseHandler):
             await models.Drop.delete(self.pgc, models.Drop.c.owner_id == self.user.id)
             self.application.storage.remove_objects(
                 models.DropFile.bucket,
-                [dropfile.hash for drop in drops for dropfile in drop.dropfiles]
+                [dropfile.hash for drop in drops for dropfile in drop.dropfiles],
             )
         self.set_status(200)
         self.finish()
@@ -309,7 +309,9 @@ class DropFileHandler(BaseHandler):
                 .values(is_preview_ready=False)
                 .where(models.Drop.c.id == dropfile.drop_id)
             )
-            self.application.storage.remove_object(models.DropFile.bucket, dropfile.hash)
+            self.application.storage.remove_object(
+                models.DropFile.bucket, dropfile.hash
+            )
         tasks.generate_previews.delay(dropfile.drop_id)
         self.set_status(200)
         self.finish()
@@ -363,19 +365,22 @@ class DropUploadBlobHandler(BaseHandler):
                 schema: ValidationErrorSchema
         """
         async with self.pgc.begin():
-            drop = await models.Drop.create(self.pgc, self.user)
-            drop_file_name = self.request.headers.get("Drop-File-Name", None)
-            drop_file = await models.DropFile.create(self.pgc, drop, drop_file_name)
             blob = self.request.files.get("blob", None)
             if blob is None:
                 raise errors.validation.VoblaValidationError(
                     chunk="Request does not contain DropFile's blob."
                 )
             blob = blob[0]
-            if len(blob.body) > 31457280:
+            file_size = len(blob.body)
+            if file_size > 31457280:
                 raise errors.validation.VoblaValidationError(
                     **{"blob": ("Blob size can't be larger than 31MB")}
                 )
+            drop = await models.Drop.create(self.pgc, self.user)
+            drop_file_name = self.request.headers.get("Drop-File-Name", None)
+            drop_file = await models.DropFile.create(
+                self.pgc, drop, name=drop_file_name, size=file_size
+            )
             drop_file.set_mimetype(blob.body, drop_file_name)
             self.application.storage.put_object(
                 bucket_name=models.DropFile.bucket,
@@ -510,7 +515,9 @@ class DropUploadChunksHandler(BaseHandler):
                         raise errors.validation.VoblaValidationError(
                             403, **{"Drop-Hash": ("Drop with such hash is not yours.")}
                         )
-                drop_file = await models.DropFile.create(self.pgc, drop, drop_file_name)
+                drop_file = await models.DropFile.create(
+                    self.pgc, drop, name=drop_file_name, size=file_total_size
+                )
             else:
                 drop_file = await models.DropFile.select(
                     self.pgc, models.DropFile.c.hash == drop_file_hash
@@ -518,7 +525,7 @@ class DropUploadChunksHandler(BaseHandler):
                 if drop_file is None:
                     raise errors.validation.VoblaValidationError(
                         404,
-                        **{"Drop-File-Hash": ("DropFile with such hash is not found.")},
+                        **{"Drop-File-Hash": "DropFile with such hash is not found."},
                     )
                 drop = await models.Drop.select(
                     self.pgc, models.Drop.c.id == drop_file.drop_id
@@ -528,7 +535,7 @@ class DropUploadChunksHandler(BaseHandler):
                 if drop.owner_id != self.user.id:
                     raise errors.validation.VoblaValidationError(
                         403,
-                        **{"Drop-File-Hash": ("DropFile with such hash is not yours.")},
+                        **{"Drop-File-Hash": "DropFile with such hash is not yours."},
                     )
 
             chunk = self.request.files.get("chunk", None)
@@ -541,7 +548,7 @@ class DropUploadChunksHandler(BaseHandler):
             # 31457280 bytes = 30mb
             if max(chunk_size, current_chunk_size) > 31457280:
                 raise errors.validation.VoblaValidationError(
-                    **{"Chunk-Size": ("Chunk size can't be larger than 30MB")}
+                    **{"Chunk-Size": "Chunk size can't be larger than 30MB"}
                 )
             # save chunks in ssdb with ttl=600s
             self.application.ssdb.set(f"{drop.hash}:{chunk_number}", chunk.body, 600)
@@ -554,7 +561,7 @@ class DropUploadChunksHandler(BaseHandler):
                     value = self.application.ssdb.get(ssdb_key)
                     if value is None:
                         raise errors.validation.VoblaValidationError(
-                            **{"Chunk-Number": (f"Previous chunk #{ind} not found.")}
+                            **{"Chunk-Number": f"Previous chunk #{ind} not found."}
                         )
                     self.application.ssdb.delete(ssdb_key)
                     buffer.write(value)

@@ -81,11 +81,14 @@ class Drop(StorageMixin, Model):
         async with pgc.begin():
             obj = cls(name=name and name[:32], owner_id=owner.id)
             await obj.insert(pgc, [obj.c.created_at])
-            obj.hash = "{}".format(obj.encode(obj.id))
-            if name is None:
-                obj.name = obj.hash
-            await obj.update(pgc)
+            await obj.update_hash(pgc)
             return obj
+
+    async def update_hash(self, pgc):
+        self.hash = "{}".format(self.encode(self.id))
+        if self.name is None:
+            self.name = self.hash
+        await self.update(pgc)
 
 
 class DropFile(StorageMixin, Model):
@@ -100,6 +103,7 @@ class DropFile(StorageMixin, Model):
         ),
         sa.Column("hash", sa.String(16)),
         sa.Column("mimetype", sa.String(32)),
+        sa.Column("size", sa.Integer),
         sa.Column("created_at", sa.DateTime, default=datetime.datetime.utcnow),
         sa.Column("uploaded_at", sa.DateTime, nullable=True),
     ]
@@ -115,13 +119,27 @@ class DropFile(StorageMixin, Model):
         return hashids.decode(hash_)[0]
 
     @classmethod
-    async def create(cls, pgc, drop, name=None):
+    async def create(
+        cls,
+        pgc,
+        drop,
+        *,
+        size: int = 0,
+        name: str = None,
+    ):
         async with pgc.begin():
-            obj = cls(name=name and name[:32], drop_id=drop.id)
+            obj = cls(
+                name=name and name[:32],
+                size=size,
+                drop_id=drop.id,
+            )
             await obj.insert(pgc, [obj.c.created_at])
-            obj.hash = "{}".format(obj.encode(obj.id))
-            await obj.update(pgc)
+            await obj.update_hash(pgc)
             return obj
+
+    async def update_hash(self, pgc):
+        self.hash = "{}".format(self.encode(self.id))
+        await self.update(pgc)
 
     def set_mimetype(self, buffer, filename: str = None):
         mimetype = magic.from_buffer(buffer, mime=True)

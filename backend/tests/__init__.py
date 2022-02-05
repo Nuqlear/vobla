@@ -73,10 +73,13 @@ class TestMixin(AsyncHTTPTestCase):
     @staticmethod
     def assertValidationError(resp, nonvalidated_fields, code=422):
         assert resp.code == code
-        assert 'error' in resp.body
-        assert 'fields' in resp.body['error']
+        body = resp.body
+        if isinstance(body, bytes):
+            body = json.loads(body)
+        assert 'error' in body
+        assert 'fields' in body['error']
         if isinstance(nonvalidated_fields, list):
             for field in nonvalidated_fields:
-                assert field in resp.body['error']['fields']
+                assert field in body['error']['fields']
         else:
-            assert nonvalidated_fields in resp.body['error']['fields']
+            assert nonvalidated_fields in body['error']['fields']
