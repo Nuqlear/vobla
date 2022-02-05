@@ -115,11 +115,9 @@ class UserDropsHandler(BaseHandler):
         )
         if drops:
             await models.Drop.delete(self.pgc, models.Drop.c.owner_id == self.user.id)
-            self.application.minio.remove_objects(
+            self.application.storage.remove_objects(
                 models.DropFile.bucket,
-                itertools.chain(
-                    *[dropfile.hash for drop in drops for dropfile in drop.dropfiles]
-                ),
+                [dropfile.hash for drop in drops for dropfile in drop.dropfiles]
             )
         self.set_status(200)
         self.finish()
@@ -192,7 +190,7 @@ class DropHandler(BaseHandler):
                     self.pgc, models.Drop.c.id == models.Drop.decode(drop_hash)
                 )
                 self.set_status(200)
-                self.application.minio.remove_objects(
+                self.application.storage.remove_objects(
                     models.DropFile.bucket,
                     [dropfile.hash for dropfile in drop.dropfiles],
                 )
@@ -229,7 +227,7 @@ class DropPreviewHandler(BaseHandler):
         )
         if drop is None:
             raise errors.http.VoblaHTTPError(404, "Drop with such hash is not found.")
-        obj = drop.get_from_minio(self.application.minio)
+        obj = drop.get_from_storage(self.application.storage)
         self.set_header("Content-Type", obj.getheader("Content-Type"))
         for d in obj.stream(32 * 1024):
             self.write(d)
@@ -311,7 +309,7 @@ class DropFileHandler(BaseHandler):
                 .values(is_preview_ready=False)
                 .where(models.Drop.c.id == dropfile.drop_id)
             )
-            self.application.minio.remove_object(models.DropFile.bucket, dropfile.hash)
+            self.application.storage.remove_object(models.DropFile.bucket, dropfile.hash)
         tasks.generate_previews.delay(dropfile.drop_id)
         self.set_status(200)
         self.finish()
@@ -379,7 +377,7 @@ class DropUploadBlobHandler(BaseHandler):
                     **{"blob": ("Blob size can't be larger than 31MB")}
                 )
             drop_file.set_mimetype(blob.body, drop_file_name)
-            self.application.minio.put_object(
+            self.application.storage.put_object(
                 bucket_name=models.DropFile.bucket,
                 object_name=drop_file.hash,
                 data=BytesIO(blob.body),
@@ -563,7 +561,7 @@ class DropUploadChunksHandler(BaseHandler):
                 buffer.seek(0)
                 drop_file.set_mimetype(buffer.read(1024), drop_file_name)
                 buffer.seek(0)
-                self.application.minio.put_object(
+                self.application.storage.put_object(
                     bucket_name=models.DropFile.bucket,
                     object_name=drop_file.hash,
                     data=buffer,
@@ -620,8 +618,8 @@ class DropFileContentHandler(BaseHandler):
             )
         self.set_header("Content-Disposition", f': inline; filename="{dropfile.name}"')
         self.set_header("Content-Type", dropfile.mimetype)
-        stream = dropfile.get_from_minio(self.application.minio).stream(32 * 1024)
-        for stream_data in stream:
-            self.write(stream_data)
+        obj = dropfile.get_from_storage(self.application.storage)
+        for chunk in obj.iter_chunks(32 * 1024):
+            self.write(chunk)
         self.set_status(200)
         self.finish()

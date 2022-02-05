@@ -40,7 +40,7 @@ class TestMixin(AsyncHTTPTestCase):
     def setUp(self):
         super(TestMixin, self).setUp()
         self.pg = self._app.pg
-        self.minio = self._app.minio
+        self.storage = self._app.storage
         asyncio.get_event_loop().run_until_complete(self.recreate_tables())
 
     def get_new_ioloop(self):

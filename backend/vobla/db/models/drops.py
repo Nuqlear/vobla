@@ -1,5 +1,6 @@
 import datetime
 import os
+import io
 
 import magic
 import sqlalchemy as sa
@@ -10,17 +11,18 @@ from vobla.db.orm import Model
 from vobla.db.models.users import User
 from vobla.schemas import serializers
 from vobla.settings import config
+from vobla.storage import VoblaStorage
 
 
 hashids = Hashids(salt=config["tornado"]["secret_key"], min_length=16)
 
 
-class MinioMixin:
-    def get_from_minio(self, minio):
-        return minio.get_object(self.bucket, self.hash)
+class StorageMixin:
+    def get_from_storage(self, storage: VoblaStorage) -> io.BytesIO:
+        return storage.get_object(self.bucket, self.hash)
 
 
-class Drop(MinioMixin, Model):
+class Drop(StorageMixin, Model):
     __tablename__ = "drop"
     schema = [
         sa.Column("id", sa.Integer, primary_key=True),
@@ -86,7 +88,7 @@ class Drop(MinioMixin, Model):
             return obj
 
 
-class DropFile(MinioMixin, Model):
+class DropFile(StorageMixin, Model):
     __tablename__ = "drop_file"
     schema = [
         sa.Column("id", sa.Integer, primary_key=True),

@@ -249,7 +249,7 @@ class DropUploadChunksHandlerTest(TestMixin):
         )
         assert drop_file is not None
         assert drop_file.mimetype == "image/png"
-        obj = drop_file.get_from_minio(self.minio)
+        obj = drop_file.get_from_storage(self.storage)
         assert obj is not None
         drop_file_data = obj.read()
         assert drop_file_data == data
@@ -404,7 +404,7 @@ class DropUploadBlobHandlerTest(TestMixin):
                 )
                 assert drop_file is not None
                 assert drop_file.mimetype == "image/png"
-                obj = drop_file.get_from_minio(self.minio)
+                obj = drop_file.get_from_storage(self.storage)
                 assert obj is not None
                 drop_file_data = obj.read()
                 assert drop_file_data == data

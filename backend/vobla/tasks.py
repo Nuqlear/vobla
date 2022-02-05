@@ -12,7 +12,7 @@ from celery.signals import worker_init
 from vobla.db import models
 from vobla.db.engine import get_engine_params
 from vobla.settings import config
-from vobla.utils.minio import get_minio_client
+from vobla.storage import get_storage
 from vobla.utils.mimetypes import get_mimetype_preview
 
 
@@ -34,22 +34,22 @@ class BaseTask(Task):
         )
 
     @classmethod
-    def create_minio_client(cls):
-        cls.minio = get_minio_client()
+    def create_storage_client(cls):
+        cls.storage = get_storage()
 
 
 @worker_init.connect
 def configure_workers(*args, **kwargs):
     BaseTask.create_engine()
-    BaseTask.create_minio_client()
+    BaseTask.create_storage_client()
 
 
-def get_drop_file_images(*, temp_folder, rows, minio):
+def get_drop_file_images(*, temp_folder, rows, storage):
     for drop_file in (models.DropFile._construct_from_row(row) for row in rows):
         drop_file_path = os.path.join(temp_folder, drop_file.hash)
         if drop_file.mimetype.startswith("image/"):
             with open(drop_file_path, "wb+") as f:
-                for d in drop_file.get_from_minio(minio).stream(32 * 1024):
+                for d in drop_file.get_from_storage(storage).stream(32 * 1024):
                     f.write(d)
         else:
             drop_file_path = get_mimetype_preview(drop_file.mimetype)
@@ -71,7 +71,7 @@ def generate_previews(self, drop_id: int):
             temp_folder = tempfile.mkdtemp()
             try:
                 images = get_drop_file_images(
-                    temp_folder=temp_folder, rows=rows, minio=self.minio
+                    temp_folder=temp_folder, rows=rows, storage=self.storage
                 )
                 if len(rows) == 1:
                     image = str(next(images))
@@ -102,7 +102,7 @@ def generate_previews(self, drop_id: int):
                 )
                 data, error = process.communicate()
                 content_type = magic.from_buffer(data, mime=True)
-                self.minio.put_object(
+                self.storage.put_object(
                     bucket_name=models.Drop.bucket,
                     object_name=models.Drop.encode(drop_id),
                     data=BytesIO(data),

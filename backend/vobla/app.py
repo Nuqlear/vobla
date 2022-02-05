@@ -7,7 +7,7 @@ import tornado.ioloop
 from vobla.settings import config
 from vobla.urls import url_patterns
 from vobla.db.engine import create_engine
-from vobla.utils.minio import get_minio_client
+from vobla.storage import  get_storage
 
 
 class TornadoApplication(tornado.web.Application):
@@ -20,5 +20,5 @@ class TornadoApplication(tornado.web.Application):
         self.ssdb = pyssdb.Client(
             host=config["ssdb"]["host"], port=int(config["ssdb"]["port"])
         )
-        self.minio = get_minio_client()
+        self.storage = get_storage()
         tornado.web.Application.__init__(self, url_patterns, **config["tornado"])
