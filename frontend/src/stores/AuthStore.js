@@ -32,7 +32,6 @@ export default class AuthStore {
     email: '',
     password: '',
     password_confirm: '',
-    invite_code: ''
   }
 
   @action
@@ -54,16 +53,9 @@ export default class AuthStore {
   }
 
   @action
-  setInviteCode(invite_code) {
-    this.values.invite_code = invite_code
-    this.message = undefined
-  }
-
-  @action
   reset() {
     this.values.password = ''
     this.values.password_confirm = ''
-    this.values.invite_code = ''
     this.message = undefined
   }
 
@@ -78,7 +70,6 @@ export default class AuthStore {
       this.message = undefined
       this.errors = undefined
       const resp = await axios.post('/api/users/signup', {
-        invite_code: this.values.invite_code,
         email: this.values.email,
         password: this.values.password
       })

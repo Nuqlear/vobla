@@ -10,13 +10,10 @@ import tornado.platform
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
-from celery.bin import worker
 
 from vobla.settings import config
 from vobla.app import TornadoApplication
 from vobla.tasks import celery_app
-from vobla.db.engine import create_engine
-from vobla.db.models import UserInvite
 
 
 logging.basicConfig(level=logging.INFO)
@@ -41,19 +38,6 @@ def run_tests():
     sys.exit(pytest.main(["-vv", "-s", TESTS_FOLDER]))
 
 
-def create_invite():
-    tornado.platform.asyncio.AsyncIOMainLoop().install()
-    loop = tornado.ioloop.IOLoop.current().asyncio_loop
-
-    async def _create_invite():
-        eng = await create_engine(loop)
-        async with eng.acquire() as pgc:
-            ui = await UserInvite.create(pgc)
-            print(ui.code)
-
-    loop.run_until_complete(_create_invite())
-
-
 def run_worker():
     worker = celery_app.Worker(include=["vobla.tasks"])
     worker.start()
@@ -72,8 +56,6 @@ if __name__ == "__main__":
         run_migrations()
     if args.command == "runserver":
         run_server()
-    elif args.command == "createinv":
-        create_invite()
     elif args.command == "runtests":
         run_tests()
     elif args.command == "runworker":

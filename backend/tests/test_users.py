@@ -16,13 +16,10 @@ class SignupTest(TestMixin):
 
     @gen_test
     async def test_incomplete_data(self):
-        async with self.pg.acquire() as conn:
-            ui = await models.UserInvite.create(conn)
         cases = [
             {},
             {"email": "mail@mail.ru"},
             {"password": "228"},
-            {"invite_code": ui.code},
             {"email": "em", "password": "228"},
         ]
         for case_data in cases:
@@ -34,8 +31,7 @@ class SignupTest(TestMixin):
     @gen_test
     async def test_valid_data(self):
         async with self.pg.acquire() as conn:
-            ui = await models.UserInvite.create(conn)
-            data = {"email": "mail@mail.ru", "password": "pass", "invite_code": ui.code}
+            data = {"email": "mail@mail.ru", "password": "pass"}
             resp = await self._test_case(data, 201)
             assert "token" in resp.body
             user = await models.User.select(conn, models.User.c.email == data["email"])
@@ -51,8 +47,6 @@ class SignupTest(TestMixin):
         }
         async with self._app.pg.acquire() as conn:
             await models.User.insert(conn, data)
-            ui = await models.UserInvite.create(conn)
-            data["invite_code"] = ui.code
         data["password"] = data.pop("password_hash")
         resp = await self._test_case(data, errors.validation.VoblaValidationError.code)
         assert "token" not in resp.body

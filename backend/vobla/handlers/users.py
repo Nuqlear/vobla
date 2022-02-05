@@ -39,29 +39,15 @@ class SignupHandler(BaseHandler):
                 schema: ValidationErrorSchema
         """
         async with self.pgc.begin() as tr:
-            cursor = await self.pgc.execute(
-                models.UserInvite.t.select()
-                .with_for_update()
-                .where(models.UserInvite.c.code == reqargs["invite_code"])
-            )
-            res = await cursor.fetchone()
-            if not res:
-                raise errors.validation.VoblaValidationError(
-                    invite_code="Invite code is not valid"
-                )
             if not email_simple_validation(reqargs["email"]):
                 raise errors.validation.VoblaValidationError(
                     email="Email does not look valid"
                 )
-            invite_code = reqargs.pop("invite_code")
             password = reqargs.pop("password")
             user = models.User(
                 **reqargs,
                 password_hash=self.application.auth.hash_password(password),
                 active_session_hash=self.application.auth.generate_active_session_hash(),
-            )
-            await models.UserInvite.delete(
-                self.pgc, models.UserInvite.c.code == invite_code
             )
             try:
                 await user.insert(self.pgc)
