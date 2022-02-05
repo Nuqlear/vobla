@@ -6,8 +6,7 @@ from io import BytesIO
 
 import magic
 from sqlalchemy import create_engine, and_
-from celery import Celery
-from celery.task import Task
+from celery import Celery, Task
 from celery.signals import worker_init
 
 from vobla.db import models

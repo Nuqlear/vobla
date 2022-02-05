@@ -1,9 +1,9 @@
 PyJWT==1.5.3
 tornado==4.5.2
-redis==3.2.0
-aiopg==0.13.1
+redis==4.1.2
+aiopg==1.3.3
 sqlalchemy==1.1.15
-psycopg2==2.7.3.2
+psycopg2==2.9.3
 alembic==0.9.6
 apispec==3.1.0
 pytest==3.2.5
@@ -12,8 +12,8 @@ passlib==1.7.1
 hashids==1.2.0
 python-magic==0.4.15
 requests==2.18.4
-celery==4.1.1
+celery==5.2.3
 pyssdb==0.4.1
 minio==4.0.0
 apispec-webframeworks==0.5.2
-PyYAML==3.12
+PyYAML==6.0
