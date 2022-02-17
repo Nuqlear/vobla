@@ -18,9 +18,20 @@ class BaseAsyncFactory(factory.Factory):
 
 
 class UserFactory(BaseAsyncFactory):
+    user_tier_id = "super"
     email = factory.fuzzy.FuzzyText()
     password_hash = factory.fuzzy.FuzzyText()
     active_session_hash = factory.fuzzy.FuzzyText()
+
+    class Meta:
+        model = models.User
+
+
+class UserTierFactory(BaseAsyncFactory):
+    id = "super"
+    name = factory.fuzzy.FuzzyText()
+    max_drop_file_size = None
+    max_storage_size = None
 
     class Meta:
         model = models.User

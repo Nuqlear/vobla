@@ -13,6 +13,7 @@ from vobla.schemas.serializers.drops import (
     DropFileFirstChunkUploadSchema,
     UserDropsSchema,
 )
+from vobla.user_tiers import check_drop_file_allowed
 
 
 def utcnow2ms(utcnow: datetime):
@@ -372,6 +373,7 @@ class DropUploadBlobHandler(BaseHandler):
                 )
             blob = blob[0]
             file_size = len(blob.body)
+            await check_drop_file_allowed(self.pgc, self.user, file_size)
             if file_size > 31457280:
                 raise errors.validation.VoblaValidationError(
                     **{"blob": ("Blob size can't be larger than 31MB")}
@@ -499,6 +501,7 @@ class DropUploadChunksHandler(BaseHandler):
             drop = None
             drop_file = None
             if drop_file_hash is None:
+                await check_drop_file_allowed(self.pgc, self.user, file_total_size)
                 if drop_hash is None:
                     drop = await models.Drop.create(
                         self.pgc, self.user, headers.get("Drop-Name", None)

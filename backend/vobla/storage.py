@@ -4,9 +4,6 @@ from typing import List
 import boto3
 from botocore.client import Config
 
-# from minio import Minio
-# from minio.error import BucketAlreadyOwnedByYou, BucketAlreadyExists
-
 from vobla.db import models
 from vobla.settings import config
 

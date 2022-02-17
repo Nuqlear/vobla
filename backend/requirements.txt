@@ -3,6 +3,7 @@ tornado==4.5.2
 redis==4.1.2
 aiopg==1.3.3
 sqlalchemy==1.1.15
+sqlalchemy_utils==0.36.8
 psycopg2==2.9.3
 alembic==0.9.6
 # apispec==3.1.0
