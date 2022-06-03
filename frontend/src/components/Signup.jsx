@@ -36,7 +36,7 @@ class Signup extends Component {
 
     const question = (
       <div>
-        Already have an acoount? <Link to="/login">Log In</Link>
+        Already have an account? <Link to="/login">Log In</Link>
       </div>
     )
 
