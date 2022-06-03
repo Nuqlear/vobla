@@ -8,7 +8,7 @@ psycopg2==2.9.3
 alembic==0.9.6
 # apispec==3.1.0
 pytest==3.2.5
-webargs==5.5.2
+webargs==5.5.3
 passlib==1.7.1
 hashids==1.2.0
 python-magic==0.4.15
