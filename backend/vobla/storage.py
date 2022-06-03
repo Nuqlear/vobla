@@ -9,6 +9,9 @@ from vobla.settings import config
 
 
 class BasicStorageObject:
+    def read(self) -> io.RawIOBase:
+        raise NotImplementedError
+
     def iter_chunks(self, num) -> io.RawIOBase:
         raise NotImplementedError
 
@@ -19,6 +22,9 @@ class BasicStorageObject:
 class MinioStorageObject(BasicStorageObject):
     def __init__(self, s3obj):
         self._s3obj = s3obj
+
+    def read(self) -> io.RawIOBase:
+        return self._s3obj["Body"].read()
 
     def iter_chunks(self, num) -> io.RawIOBase:
         return self._s3obj["Body"].iter_chunks(num)
