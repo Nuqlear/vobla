@@ -31,7 +31,7 @@ services:
     depends_on:
       - backend
     volumes:
-      - ./frontend/dist:/dist
+      - ./frontend/dist:/vobla/dist
   swagger:
     image: swaggerapi/swagger-ui
     depends_on:
